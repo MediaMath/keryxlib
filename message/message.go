@@ -3,8 +3,6 @@ package message
 import (
 	"encoding/json"
 	"fmt"
-
-	"github.com/MediaMath/keryxlib/build"
 )
 
 const (
@@ -30,8 +28,8 @@ const (
 	BatchMessage   MessageType = 7
 )
 
-func SerializedServerVersionMessage() string {
-	return fmt.Sprintf(`{"Type":%v,"ServerVersion":"%v"}`, InfoMessage, build.BuildString())
+func SerializedServerVersionMessage(version string) string {
+	return fmt.Sprintf(`{"Type":%v,"ServerVersion":"%v"}`, InfoMessage, version)
 }
 
 func SerializedStatsMessage(connects, disconnects, messages uint64) string {
