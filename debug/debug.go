@@ -28,8 +28,8 @@ func FileOutputter(debugFileName string) (Outputter, error) {
 	return func(msg string, v ...interface{}) { debugLogFile.Write([]byte(fmt.Sprintf(msg, v...) + "\n")) }, nil
 }
 
-func SuppressDuplicateOutputter(level int, count int, out Outputter) Outputter {
-	vals := duplicateFilteringOutputter{level, count, ""}
+func SuppressDuplicateOutputter(level int, out Outputter) Outputter {
+	vals := duplicateFilteringOutputter{level, 0, ""}
 	return func(msg string, v ...interface{}) {
 		output := fmt.Sprintf(msg, v)
 
