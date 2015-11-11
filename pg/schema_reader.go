@@ -1,11 +1,11 @@
 package pg
 
 import (
+	"database/sql"
 	"fmt"
 	"strconv"
 	"strings"
 
-	utils "github.com/MediaMath/Keryx/utils"
 	_ "github.com/lib/pq"
 )
 
@@ -52,22 +52,51 @@ func (sf SchemaField) String() string {
 	return kind
 }
 
+type DatabaseDetails struct {
+	Name string
+	Conn *sql.DB
+}
+
 type SchemaReader struct {
-	conns          map[uint32]utils.DatabaseDetails
+	conns          map[uint32]DatabaseDetails
 	schemaCache    map[string]*Schema
 	fieldSizeLimit uint32
 }
 
 func NewSchemaReader(creds []string, driverName string, fieldSizeLimit uint32) (*SchemaReader, error) {
 
-	conns, err := utils.ResolveDatabaseConnections(creds, driverName)
+	conns, err := resolveDatabaseConnections(creds, driverName)
 
-	if utils.LogError(err) {
+	if err != nil {
 		return nil, err
 	}
 
 	schemaCache := make(map[string]*Schema)
 	return &SchemaReader{conns, schemaCache, fieldSizeLimit}, nil
+}
+
+func resolveDatabaseConnections(creds []string, driverName string) (map[uint32]DatabaseDetails, error) {
+	var name string
+	var dbOid uint32 = 0
+
+	conns := make(map[uint32]DatabaseDetails)
+
+	for _, connStr := range creds {
+		db, err := sql.Open(driverName, connStr)
+		if err != nil {
+			return nil, err
+		}
+
+		err = db.QueryRow("select oid, datname from pg_database where datname = current_database() limit 1").Scan(&dbOid, &name)
+		if err != nil {
+			return nil, err
+		}
+
+		db.SetMaxOpenConns(1)
+		conns[dbOid] = DatabaseDetails{name, db}
+	}
+
+	return conns, nil
 }
 
 func (sr *SchemaReader) LatestReplayLocation() uint64 {

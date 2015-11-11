@@ -3,7 +3,7 @@ package wal
 import (
 	"fmt"
 
-	"github.com/MediaMath/Keryx/pg/control"
+	"github.com/MediaMath/keryxlib/pg/control"
 )
 
 // NewCursorAtCheckpoint creates a new cursor pointing at the current checkpoint

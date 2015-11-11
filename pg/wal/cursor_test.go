@@ -1,11 +1,8 @@
 package wal
 
 import (
-	"fmt"
 	"os"
 	"testing"
-
-	"github.com/MediaMath/Keryx/testingUtils"
 )
 
 const testDataDir = "./test_data/data"
@@ -40,7 +37,9 @@ func TestCorrectCountOfRecordsParsedSincePreviousCheckpoint(t *testing.T) {
 
 	for typ, expected := range expectedCounts {
 		actual, ok := actualCounts[typ]
-		testingUtils.FailIfTrue(t, actual != expected || !ok, fmt.Sprintf("incorrect count for type: %v; expected %v but got %v", typ, expected, actual))
+		if !ok || actual != expected {
+			t.Fatalf("incorrect count for type: %v; expected %v but got %v", typ, expected, actual)
+		}
 	}
 }
 

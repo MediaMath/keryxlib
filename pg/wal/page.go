@@ -1,6 +1,6 @@
 package wal
 
-import "github.com/MediaMath/Keryx/pg"
+import "github.com/MediaMath/keryxlib/pg"
 
 // Page contains methods for reading values from a WAL page header and for detecting/reading a continuation
 type Page struct {

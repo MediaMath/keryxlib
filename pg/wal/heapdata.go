@@ -3,7 +3,7 @@ package wal
 import (
 	"fmt"
 
-	"github.com/MediaMath/Keryx/pg"
+	"github.com/MediaMath/keryxlib/pg"
 )
 
 // HeapData describes heap resource manager specific details from a record

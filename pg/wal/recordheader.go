@@ -1,6 +1,6 @@
 package wal
 
-import "github.com/MediaMath/Keryx/pg"
+import "github.com/MediaMath/keryxlib/pg"
 
 // These constants describe the type of heap tuple found in the WAL
 const (
