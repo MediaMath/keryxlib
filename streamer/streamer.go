@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/MediaMath/keryxlib/debug"
 	"github.com/MediaMath/keryxlib/pg/wal"
 )
 
@@ -24,12 +25,8 @@ func New(dataDir string) (*Streamer, error) {
 	return s, nil
 }
 
-type DebugLog interface {
-	Debug(string)
-}
-
 // Start begins streaming of events in a go routine and returns a channel of *xlog.XLogRecord
-func (streamer *Streamer) Start(debug DebugLog) (<-chan *wal.Entry, error) {
+func (streamer *Streamer) Start(d debug.Outputter) (<-chan *wal.Entry, error) {
 	out := make(chan *wal.Entry)
 
 	if streamer.publish == nil {
@@ -43,7 +40,7 @@ func (streamer *Streamer) Start(debug DebugLog) (<-chan *wal.Entry, error) {
 		tick := time.Tick(50 * time.Millisecond)
 
 		go func() {
-			for !streamer.publishUntilErrorOrStopped(debug) {
+			for !streamer.publishUntilErrorOrStopped(d) {
 				<-tick
 			}
 			close(out)
@@ -81,7 +78,7 @@ func (streamer *Streamer) startAtCheckpoint() error {
 	return err
 }
 
-func (streamer *Streamer) publishUntilErrorOrStopped(debug DebugLog) (stopped bool) {
+func (streamer *Streamer) publishUntilErrorOrStopped(d debug.Outputter) (stopped bool) {
 	stopped = false
 
 	var ent *wal.Entry
@@ -98,7 +95,7 @@ func (streamer *Streamer) publishUntilErrorOrStopped(debug DebugLog) (stopped bo
 
 		if err == nil && ent != nil {
 			if ent.ReadFrom.Offset() > streamer.lastOffsetPublished {
-				debug.Debug(fmt.Sprintf("read entry %v", ent))
+				d("read entry %v", ent)
 				streamer.publish <- ent
 				*streamer.cursor = currentCursor
 
