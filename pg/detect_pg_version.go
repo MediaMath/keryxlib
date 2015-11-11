@@ -1,44 +1,32 @@
 package pg
 
 import (
-	"github.com/MediaMath/Keryx/utils"
+	"errors"
 	"io/ioutil"
 	"path"
 	"strings"
 )
 
-func IsPgVersionSupported(versionFilePath string) error {
-	versionNumber := DetectPgVersion(versionFilePath)
+var incorrectVersionErr error = errors.New("Only postgres 9.1 is supported.")
 
-	var err error
-	var message string = "Only postgres 9.1 is supported."
-	if versionNumber != "9.1" {
-		err = utils.GenerateError(message)
+func IsPgVersionSupported(versionFilePath string) error {
+	versionNumber, err := DetectPgVersion(versionFilePath)
+
+	if err == nil && versionNumber != "9.1" {
+		err = incorrectVersionErr
 	}
+
 	return err
 }
 
-func DetectPgVersion(versionFilePath string) string {
+func DetectPgVersion(versionFilePath string) (versionNumber string, err error) {
 
-	versionFileName := ""
+	versionFileName := path.Join(versionFilePath, "PG_VERSION")
+	versionFile, err := ioutil.ReadFile(versionFileName)
 
-	if strings.Contains(versionFilePath, "random_file") {
-		versionFileName = versionFilePath
-
-		fileExists := utils.FileExistsAndIsNotDirectory(versionFileName)
-
-		if !fileExists {
-			versionFileName = path.Join(versionFilePath, "PG_VERSION")
-		}
-
-	} else {
-		versionFileName = path.Join(versionFilePath, "PG_VERSION")
+	if err == nil {
+		versionNumber = strings.TrimSpace(string(versionFile))
 	}
 
-	versionFile, err := ioutil.ReadFile(versionFileName)
-	utils.LogFatalOnError(err)
-
-	versionNumber := strings.TrimSpace(string(versionFile))
-
-	return versionNumber
+	return
 }
