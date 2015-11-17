@@ -126,11 +126,11 @@ func (sr *SchemaReader) LatestReplayLocation() uint64 {
 	return 0xFFFFFFFFFFFFFFFF
 }
 
-func (sr *SchemaReader) ConvertRelNamesToIds(names []string) map[uint32]bool {
+func (sr *SchemaReader) ConvertRelNamesToIds(names []string) map[uint32]string {
 	var relName string
 	var relId uint32
 
-	ids := make(map[uint32]bool)
+	ids := make(map[uint32]string)
 
 	for _, db := range sr.conns {
 		rs, err := db.Conn.Query(relIdName)
@@ -143,7 +143,7 @@ func (sr *SchemaReader) ConvertRelNamesToIds(names []string) map[uint32]bool {
 			if err := rs.Scan(&relId, &relName); err == nil {
 				for _, name := range names {
 					if name == relName {
-						ids[relId] = true
+						ids[relId] = relName
 						break
 					}
 				}

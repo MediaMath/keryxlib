@@ -21,7 +21,7 @@ type buffer struct {
 	memoryCounter    uint64
 }
 
-func newBuffer(workingDirectory string, memoryLimit, itemSize uint64) *buffer {
+func NewBuffer(workingDirectory string, memoryLimit, itemSize uint64) *buffer {
 	b := buffer{workingDirectory, nil, memoryLimit, itemSize, 0}
 	b.initialize()
 	return &b
@@ -44,7 +44,7 @@ func (b *buffer) initialize() {
 	b.memoryCounter = 0
 }
 
-func (b *buffer) add(key uint32, item []byte) {
+func (b *buffer) Add(key uint32, item []byte) {
 	if (b.memoryCounter + b.itemSize) <= b.memoryLimit {
 		b.addInMemory(key, item)
 	} else {
@@ -52,7 +52,7 @@ func (b *buffer) add(key uint32, item []byte) {
 	}
 }
 
-func (b *buffer) remove(key uint32) (out [][]byte) {
+func (b *buffer) Remove(key uint32) (out [][]byte) {
 	out, ok := b.removeFromMemory(key)
 	if !ok {
 		out = b.removeFromDisk(key)

@@ -38,7 +38,7 @@ func testAddWithSize(t *testing.T, originalSize uint64) {
 		repeatedNonZeroValue = 1
 	)
 
-	b := newBuffer(".", memoryLimit, expectedSize)
+	b := NewBuffer(".", memoryLimit, expectedSize)
 	defer b.initialize()
 
 	var bs []byte
@@ -46,8 +46,8 @@ func testAddWithSize(t *testing.T, originalSize uint64) {
 		bs = append(bs, repeatedNonZeroValue)
 	}
 
-	b.add(itemKey, bs)
-	out := b.remove(itemKey)
+	b.Add(itemKey, bs)
+	out := b.Remove(itemKey)
 
 	if len(out) != 1 {
 		t.Fatal("expected exactly one value")
@@ -81,7 +81,7 @@ func testAddWithLimit(t *testing.T, memoryLimit uint64) {
 		itemSize  = 10
 	)
 
-	b := newBuffer(".", memoryLimit, itemSize)
+	b := NewBuffer(".", memoryLimit, itemSize)
 	defer b.initialize()
 
 	for key := uint32(1); key <= keyCount; key++ {
@@ -90,12 +90,12 @@ func testAddWithLimit(t *testing.T, memoryLimit uint64) {
 			for i := range item {
 				item[i] = itemNumber
 			}
-			b.add(key, item)
+			b.Add(key, item)
 		}
 	}
 
 	for key := uint32(1); key <= keyCount; key++ {
-		items := b.remove(key)
+		items := b.Remove(key)
 		if len(items) < itemCount {
 			t.Error("insufficient items for key", key, len(items))
 		}

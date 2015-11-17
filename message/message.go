@@ -1,9 +1,6 @@
 package message
 
-import (
-	"encoding/json"
-	"fmt"
-)
+import "fmt"
 
 const (
 	keyStr   = "%.8X%.8X%.8X"
@@ -24,37 +21,7 @@ const (
 	DeleteMessage  MessageType = 3
 	UpdateMessage  MessageType = 4
 	CommitMessage  MessageType = 5
-	InfoMessage    MessageType = 6
-	BatchMessage   MessageType = 7
 )
-
-func SerializedServerVersionMessage(version string) string {
-	return fmt.Sprintf(`{"Type":%v,"ServerVersion":"%v"}`, InfoMessage, version)
-}
-
-func SerializedStatsMessage(connects, disconnects, messages uint64) string {
-	return fmt.Sprintf(`{"Type":%v,"Connects":%v,"Disconnects":%v,"Active":%v,"Messages":%v}`,
-		InfoMessage, connects, disconnects, connects-disconnects, messages)
-}
-
-func SerializedMessageBatch(messageWithKeyFound bool, messages []string) string {
-	if messages == nil {
-		messages = make([]string, 0)
-	}
-	batch := struct {
-		Type                MessageType
-		MessageWithKeyFound bool
-		Messages            []string
-	}{BatchMessage, messageWithKeyFound, messages}
-
-	bs, err := json.Marshal(batch)
-	if err == nil {
-		return string(bs)
-	}
-	return ""
-	// its ugly to use "" as an error code but the only errors that json marshalling can
-	// encounter are around reflection and using a hardcoded struct should prevent that
-}
 
 func (messageType *MessageType) String() string {
 	switch *messageType {
@@ -66,11 +33,13 @@ func (messageType *MessageType) String() string {
 		return "UpdateMessage"
 	case CommitMessage:
 		return "CommitMessage"
-	case InfoMessage:
-		return "InfoMessage"
 	}
 
 	return "UnknownMessage"
+}
+
+func NewTupleId(block uint32, offset uint16) string {
+	return fmt.Sprintf(tupleStr, block, offset)
 }
 
 type MessageKey string
@@ -112,70 +81,43 @@ func parseMessageKey(key MessageKey) (timelineId uint32, logId uint32, recordOff
 	return
 }
 
+type Transaction struct {
+	TransactionId uint32     `json:"xid"`
+	FirstKey      MessageKey `json:"first"`
+	CommitKey     MessageKey `json:"commit"`
+	Messages      []Message  `json:"messages"`
+}
+
 type Message struct {
-	TimelineId    uint32      `json:"-"`
-	LogId         uint32      `json:"-"`
-	RecordOffset  uint32      `json:"-"`
-	TablespaceId  uint32      `json:"-"`
-	DatabaseId    uint32      `json:"-"`
-	RelationId    uint32      `json:"-"`
-	Type          MessageType `json:"type"`
-	Key           MessageKey  `json:"key"`
-	Prev          MessageKey  `json:"prev"`
-	TransactionId uint32      `json:"xid"`
-	DatabaseName  string      `json:"db"`
-	Namespace     string      `json:"ns"`
-	Relation      string      `json:"rel"`
-	Block         uint32      `json:"-"`
-	Offset        uint16      `json:"-"`
-	TupleId       string      `json:"ctid"`
-	Fields        []Field     `json:"fields"`
-	ServerVersion string      `json:",omitempty"`
+	TimelineId      uint32      `json:"-"`
+	LogId           uint32      `json:"-"`
+	RecordOffset    uint32      `json:"-"`
+	TablespaceId    uint32      `json:"-"`
+	DatabaseId      uint32      `json:"-"`
+	RelationId      uint32      `json:"-"`
+	Type            MessageType `json:"type"`
+	Key             MessageKey  `json:"key"`
+	Prev            MessageKey  `json:"prev"`
+	TransactionId   uint32      `json:"xid"`
+	DatabaseName    string      `json:"db"`
+	Namespace       string      `json:"ns"`
+	Relation        string      `json:"rel"`
+	Block           uint32      `json:"-"`
+	Offset          uint16      `json:"-"`
+	TupleId         string      `json:"ctid"`
+	Fields          []Field     `json:"fields"`
+	ServerVersion   string      `json:",omitempty"`
+	PopulationError error       `json:"population_error"`
+}
+
+func (msg *Message) RelFullName() string {
+	return fmt.Sprintf("%s.%s.%s", msg.DatabaseName, msg.Namespace, msg.Relation)
 }
 
 func (msg *Message) String() string {
-	if msg.Type == InfoMessage {
-		return fmt.Sprintf("ServerVersion: %v", msg.ServerVersion)
-	}
 	return fmt.Sprintf("%v %.8X/%.8X/%.8X xid:%d %s.%s.%s (%d:%d)",
 		msg.Type.String(), msg.TimelineId, msg.LogId, msg.RecordOffset, msg.TransactionId,
 		msg.DatabaseName, msg.Namespace, msg.Relation, msg.Block, msg.Offset)
-}
-
-func (msg *Message) Serialize() ([]byte, error) {
-	msg.UpdateKey()
-	msg.UpdateTuple()
-	return json.Marshal(msg)
-}
-
-func Unserialize(str string) (*Message, error) {
-	msg := new(Message)
-
-	err := json.Unmarshal([]byte(str), &msg)
-	if err != nil {
-		return nil, err
-	}
-
-	timeline, logid, offset, parseErr := parseMessageKey(msg.Key)
-	if parseErr != nil {
-		return nil, parseErr
-	}
-
-	msg.TimelineId = timeline
-	msg.LogId = logid
-	msg.RecordOffset = offset
-
-	return msg, nil
-}
-
-func (msg *Message) UpdateKey() MessageKey {
-	msg.Key = NewKey(msg.TimelineId, msg.LogId, msg.RecordOffset)
-	return msg.Key
-}
-
-func (msg *Message) UpdateTuple() string {
-	msg.TupleId = fmt.Sprintf(tupleStr, msg.Block, msg.Offset)
-	return msg.TupleId
 }
 
 func (msg *Message) AppendField(name, kind, value string) {
