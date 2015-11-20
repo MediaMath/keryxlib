@@ -8,7 +8,7 @@ import (
 	"github.com/MediaMath/keryxlib/pg/wal"
 )
 
-// Streamer models the state of a streamer process
+//WalStream is an abstraction around WAL entries.
 type WalStream struct {
 	dataDir             string
 	publish             chan<- *wal.Entry
@@ -17,14 +17,14 @@ type WalStream struct {
 	lastOffsetPublished uint64
 }
 
-// New creates a new streamer with xlog directory
+// NewWalStream creates a new WalStream pointed at the provided dataDir
 func NewWalStream(dataDir string) (*WalStream, error) {
 	s := &WalStream{dataDir, nil, make(chan interface{}), nil, 0}
 
 	return s, nil
 }
 
-// Start begins streaming of events in a go routine and returns a channel of *xlog.XLogRecord
+// Start begins streaming of events in a go routine and returns a channel of WAL entries
 func (streamer *WalStream) Start() (<-chan *wal.Entry, error) {
 	out := make(chan *wal.Entry)
 

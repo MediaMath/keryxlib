@@ -13,7 +13,8 @@ const (
 	bufferFileSuffix = "buffer_data"
 )
 
-type buffer struct {
+//Buffer is a collection of included data by transaction.
+type Buffer struct {
 	workingDirectory string
 	memoryBuffer     map[uint32][]byte
 	memoryLimit      uint64
@@ -21,13 +22,14 @@ type buffer struct {
 	memoryCounter    uint64
 }
 
-func NewBuffer(workingDirectory string, memoryLimit, itemSize uint64) *buffer {
-	b := buffer{workingDirectory, nil, memoryLimit, itemSize, 0}
+//NewBuffer returns a new abstraction of data by transaction.
+func NewBuffer(workingDirectory string, memoryLimit, itemSize uint64) *Buffer {
+	b := Buffer{workingDirectory, nil, memoryLimit, itemSize, 0}
 	b.initialize()
 	return &b
 }
 
-func (b *buffer) initialize() {
+func (b *Buffer) initialize() {
 	// wipe directory of buffer files
 	files, err := ioutil.ReadDir(b.workingDirectory)
 	if err != nil {
@@ -44,7 +46,8 @@ func (b *buffer) initialize() {
 	b.memoryCounter = 0
 }
 
-func (b *buffer) Add(key uint32, item []byte) {
+//Add adds data to the buffer by transaction id
+func (b *Buffer) Add(key uint32, item []byte) {
 	if (b.memoryCounter + b.itemSize) <= b.memoryLimit {
 		b.addInMemory(key, item)
 	} else {
@@ -52,7 +55,8 @@ func (b *buffer) Add(key uint32, item []byte) {
 	}
 }
 
-func (b *buffer) Remove(key uint32) (out [][]byte) {
+//Remove removes data for a given transaction id and returns it.
+func (b *Buffer) Remove(key uint32) (out [][]byte) {
 	out, ok := b.removeFromMemory(key)
 	if !ok {
 		out = b.removeFromDisk(key)
@@ -60,14 +64,14 @@ func (b *buffer) Remove(key uint32) (out [][]byte) {
 	return
 }
 
-func (b *buffer) addInMemory(key uint32, src []byte) {
+func (b *Buffer) addInMemory(key uint32, src []byte) {
 	dst := make([]byte, b.itemSize)
 	copy(dst, src)
 	b.memoryBuffer[key] = append(b.memoryBuffer[key], dst...)
 	b.memoryCounter += b.itemSize
 }
 
-func (b *buffer) removeFromMemory(key uint32) (out [][]byte, ok bool) {
+func (b *Buffer) removeFromMemory(key uint32) (out [][]byte, ok bool) {
 	itemBuffer, ok := b.memoryBuffer[key]
 	if ok {
 		delete(b.memoryBuffer, key)
@@ -77,7 +81,7 @@ func (b *buffer) removeFromMemory(key uint32) (out [][]byte, ok bool) {
 	return
 }
 
-func (b *buffer) addOnDisk(key uint32, item []byte) {
+func (b *Buffer) addOnDisk(key uint32, item []byte) {
 	filename := filenameForKey(key, b.workingDirectory)
 	file, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0660)
 	if err != nil {
@@ -105,7 +109,7 @@ func writeToFile(bs []byte, file *os.File) {
 	}
 }
 
-func (b *buffer) removeFromDisk(key uint32) (out [][]byte) {
+func (b *Buffer) removeFromDisk(key uint32) (out [][]byte) {
 	filename := filenameForKey(key, b.workingDirectory)
 	itemBuffer, err := ioutil.ReadFile(filename)
 	if err == nil {

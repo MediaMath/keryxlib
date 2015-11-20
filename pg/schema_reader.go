@@ -6,15 +6,17 @@ import (
 	"strconv"
 	"strings"
 
+	//we use pq a ton so its easier to blank import this
 	_ "github.com/lib/pq"
 )
 
 const (
 	nameQuery   = "select pg_namespace.nspname, pg_class.relname from pg_class join pg_namespace on pg_namespace.oid = pg_class.relnamespace where pg_relation_filenode(pg_class.oid) = $1"
 	fieldsQuery = "select column_name, data_type, coalesce(character_maximum_length,numeric_precision, 0) as size from information_schema.columns where table_schema = $1 and table_name = $2 order by ordinal_position"
-	relIdName   = "select pg_relation_filenode(rel.oid) relation_id, concat_ws('.', current_database(), ns.nspname, rel.relname) relation_name from pg_class rel join pg_namespace ns on ns.oid = rel.relnamespace where rel.relfilenode != 0 and ns.nspname not in ('pg_catalog', 'pg_toast', 'information_schema');"
+	relIDName   = "select pg_relation_filenode(rel.oid) relation_id, concat_ws('.', current_database(), ns.nspname, rel.relname) relation_name from pg_class rel join pg_namespace ns on ns.oid = rel.relnamespace where rel.relfilenode != 0 and ns.nspname not in ('pg_catalog', 'pg_toast', 'information_schema');"
 )
 
+//Schema is the full representation of a Table
 type Schema struct {
 	Database  string
 	Namespace string
@@ -34,6 +36,7 @@ func (s *Schema) String() string {
 	return fmt.Sprintf("Schema(%v.%v: [%v])", s.Namespace, s.Table, fieldStr)
 }
 
+//SchemaField represents a Column
 type SchemaField struct {
 	Column   string
 	DataType string
@@ -52,17 +55,20 @@ func (sf SchemaField) String() string {
 	return kind
 }
 
+//DatabaseDetails represents a connection
 type DatabaseDetails struct {
 	Name string
 	Conn *sql.DB
 }
 
+//SchemaReader is used to determine the schema from a database via queries.
 type SchemaReader struct {
 	conns          map[uint32]DatabaseDetails
 	schemaCache    map[string]*Schema
 	fieldSizeLimit uint32
 }
 
+//NewSchemaReader takes a list of connections, the golang db driver name and a field size limit and returns a schema reader.
 func NewSchemaReader(creds []string, driverName string, fieldSizeLimit uint32) (*SchemaReader, error) {
 
 	conns, err := resolveDatabaseConnections(creds, driverName)
@@ -77,7 +83,7 @@ func NewSchemaReader(creds []string, driverName string, fieldSizeLimit uint32) (
 
 func resolveDatabaseConnections(creds []string, driverName string) (map[uint32]DatabaseDetails, error) {
 	var name string
-	var dbOid uint32 = 0
+	var dbOid uint32
 
 	conns := make(map[uint32]DatabaseDetails)
 
@@ -99,6 +105,7 @@ func resolveDatabaseConnections(creds []string, driverName string) (map[uint32]D
 	return conns, nil
 }
 
+//LatestReplayLocation finds the last replicated WAL entry
 func (sr *SchemaReader) LatestReplayLocation() uint64 {
 	for _, dbDetails := range sr.conns {
 		var locStr string
@@ -126,24 +133,25 @@ func (sr *SchemaReader) LatestReplayLocation() uint64 {
 	return 0xFFFFFFFFFFFFFFFF
 }
 
+//ConvertRelNamesToIds takes a table name in the form db.ns.name and gets the postgres id for that relation.
 func (sr *SchemaReader) ConvertRelNamesToIds(names []string) map[uint32]string {
 	var relName string
-	var relId uint32
+	var relID uint32
 
 	ids := make(map[uint32]string)
 
 	for _, db := range sr.conns {
-		rs, err := db.Conn.Query(relIdName)
+		rs, err := db.Conn.Query(relIDName)
 		if err != nil {
 			continue
 		}
 		defer rs.Close()
 
 		for rs.Next() {
-			if err := rs.Scan(&relId, &relName); err == nil {
+			if err := rs.Scan(&relID, &relName); err == nil {
 				for _, name := range names {
 					if name == relName {
-						ids[relId] = relName
+						ids[relID] = relName
 						break
 					}
 				}
@@ -154,10 +162,10 @@ func (sr *SchemaReader) ConvertRelNamesToIds(names []string) map[uint32]string {
 	return ids
 }
 
-func (sr *SchemaReader) getSchema(databaseId uint32, relationId uint32) (*Schema, error) {
+func (sr *SchemaReader) getSchema(databaseID uint32, relationID uint32) (*Schema, error) {
 	var count = 0
 
-	key := fmt.Sprintf("%v:%v", databaseId, relationId)
+	key := fmt.Sprintf("%v:%v", databaseID, relationID)
 
 	schema, ok := sr.schemaCache[key]
 	if ok {
@@ -166,14 +174,14 @@ func (sr *SchemaReader) getSchema(databaseId uint32, relationId uint32) (*Schema
 
 	schema = &Schema{"", "", "", make([]*SchemaField, 0)}
 
-	dbDetails, ok := sr.conns[databaseId]
+	dbDetails, ok := sr.conns[databaseID]
 	if !ok {
 		return nil, nil
 	}
 
 	db := dbDetails.Conn
 
-	rs, err := db.Query(nameQuery, relationId)
+	rs, err := db.Query(nameQuery, relationID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to lookup table name: %v", err)
 	}
@@ -187,10 +195,10 @@ func (sr *SchemaReader) getSchema(databaseId uint32, relationId uint32) (*Schema
 	}
 
 	if count < 1 {
-		return nil, fmt.Errorf("error while reading table name rows: no results for %v:%v", databaseId, relationId)
-	} else {
-		count = 0
+		return nil, fmt.Errorf("error while reading table name rows: no results for %v:%v", databaseID, relationID)
 	}
+
+	count = 0
 
 	if err := rs.Err(); err != nil {
 		return nil, fmt.Errorf("error while reading table name rows: %v", err)
@@ -224,8 +232,9 @@ func (sr *SchemaReader) getSchema(databaseId uint32, relationId uint32) (*Schema
 	return schema, nil
 }
 
-func (sr *SchemaReader) GetDatabaseName(databaseId uint32) string {
-	dbDetails, ok := sr.conns[databaseId]
+//GetDatabaseName takes a postgres database id and returns the name of it.
+func (sr *SchemaReader) GetDatabaseName(databaseID uint32) string {
+	dbDetails, ok := sr.conns[databaseID]
 	if !ok {
 		return ""
 	}
@@ -233,8 +242,9 @@ func (sr *SchemaReader) GetDatabaseName(databaseId uint32) string {
 	return dbDetails.Name
 }
 
-func (sr *SchemaReader) GetNamespaceAndTable(databaseId uint32, relationId uint32) (string, string) {
-	schema, err := sr.getSchema(databaseId, relationId)
+//GetNamespaceAndTable takes a database id and a relation id and returns the namespace and table names
+func (sr *SchemaReader) GetNamespaceAndTable(databaseID uint32, relationID uint32) (string, string) {
+	schema, err := sr.getSchema(databaseID, relationID)
 	if err != nil || schema == nil {
 		return "", ""
 	}
@@ -242,17 +252,18 @@ func (sr *SchemaReader) GetNamespaceAndTable(databaseId uint32, relationId uint3
 	return schema.Namespace, schema.Table
 }
 
-func (sr *SchemaReader) GetFieldValues(databaseId uint32, relationId uint32, block uint32, offset uint16) (map[SchemaField]string, error) {
+//GetFieldValues takes database id, a table id, and a tuple and returns the fields for that table
+func (sr *SchemaReader) GetFieldValues(databaseID uint32, relationID uint32, block uint32, offset uint16) (map[SchemaField]string, error) {
 	var count = 0
 
-	dbDetails, ok := sr.conns[databaseId]
+	dbDetails, ok := sr.conns[databaseID]
 	if !ok {
 		return nil, nil
 	}
 
 	db := dbDetails.Conn
 
-	schema, err := sr.getSchema(databaseId, relationId)
+	schema, err := sr.getSchema(databaseID, relationID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve schema: %v", err)
 	} else if schema == nil {
@@ -266,9 +277,9 @@ func (sr *SchemaReader) GetFieldValues(databaseId uint32, relationId uint32, blo
 
 	cast := fmt.Sprintf("::char varying(%v)", sr.fieldSizeLimit)
 
-	names := make([]string, 0)
-	values := make([]*string, 0)
-	valuesI := make([]interface{}, 0)
+	var names []string
+	var values []*string
+	var valuesI []interface{}
 	for _, field := range schema.Fields {
 		names = append(names, fmt.Sprintf("coalesce(%v%v, '')", field.Column, cast))
 		s := new(string)

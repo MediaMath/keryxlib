@@ -57,7 +57,7 @@ func relationFilter(exclusive bool, relation string) bool {
 		f = Exclusive(fakeMapping("test"), relations)
 	}
 
-	return f.FilterRelId(relationIds[relation])
+	return f.FilterRelID(relationIds[relation])
 }
 
 var columnTest = []struct {

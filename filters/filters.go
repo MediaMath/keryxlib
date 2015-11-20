@@ -2,25 +2,31 @@ package filters
 
 import "time"
 
+//MessageFilter determines if a table or column should be removed from the output set.
 type MessageFilter interface {
-	FilterRelId(id uint32) bool
+	FilterRelID(id uint32) bool
 	FilterColumn(rel string, column string) bool
 }
 
+//FilterNone lets all tables and columns through
 type FilterNone string
 
-func (f FilterNone) FilterRelId(id uint32) bool {
+//FilterRelID always returns false
+func (f FilterNone) FilterRelID(id uint32) bool {
 	return false
 }
 
+//FilterColumn always returns false
 func (f FilterNone) FilterColumn(rel string, col string) bool {
 	return false
 }
 
+//RelationNameConverter turns table names into a map from int to name
 type RelationNameConverter interface {
 	ConvertRelNamesToIds(names []string) map[uint32]string
 }
 
+//ColumnMapFiltering uses a list of relations/columns to filter on. In the form of db.ns.table:{col1, col2}.  Also supports db.ns.table:{'*'}
 type ColumnMapFiltering struct {
 	sr             RelationNameConverter
 	relations      map[string][]string
@@ -30,10 +36,12 @@ type ColumnMapFiltering struct {
 	relationNames  []string
 }
 
+//Exclusive filters exclude the provided relations from the output set.
 func Exclusive(sr RelationNameConverter, relations map[string][]string) *ColumnMapFiltering {
 	return newColumnMapFiltering(sr, relations, true, time.Second*1)
 }
 
+//Inclusive filters include the provided relations from the output set.
 func Inclusive(sr RelationNameConverter, relations map[string][]string) *ColumnMapFiltering {
 	return newColumnMapFiltering(sr, relations, false, time.Second*1)
 }
@@ -57,7 +65,7 @@ func newColumnMapFiltering(sr RelationNameConverter, relations map[string][]stri
 	}
 }
 
-func (f *ColumnMapFiltering) periodicallyUpdateIdMap() {
+func (f *ColumnMapFiltering) periodicallyUpdateIDMap() {
 	select {
 	case <-f.idUpdateTicker:
 		f.idMap = f.sr.ConvertRelNamesToIds(f.relationNames)
@@ -65,17 +73,19 @@ func (f *ColumnMapFiltering) periodicallyUpdateIdMap() {
 	}
 }
 
-func (f *ColumnMapFiltering) FilterRelId(id uint32) bool {
-	f.periodicallyUpdateIdMap()
+//FilterRelID first makes sure the name/id map is up to date.  Then checks the provided relations against that map to determine if they should be provided or not.
+func (f *ColumnMapFiltering) FilterRelID(id uint32) bool {
+	f.periodicallyUpdateIDMap()
 	rel := f.idMap[id]
 	columns, listed := f.relations[rel]
 	if f.exclusive {
 		return listed && len(columns) == 1 && columns[0] == "*"
-	} else {
-		return !listed
 	}
+
+	return !listed
 }
 
+//FilterColumn reads the column list to determine whether a filter should be applied.
 func (f *ColumnMapFiltering) FilterColumn(rel string, column string) bool {
 	columns := f.relations[rel]
 

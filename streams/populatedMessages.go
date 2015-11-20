@@ -10,6 +10,7 @@ import (
 	"github.com/MediaMath/keryxlib/pg/wal"
 )
 
+//PopulatedMessageStream takes collections of commited WAL entries, organized by transaction and populates them from the db with their current values.  It then publishes them as a Transaction message.
 type PopulatedMessageStream struct {
 	f  filters.MessageFilter
 	sr *pg.SchemaReader
@@ -20,9 +21,10 @@ func interestingEntryType(entry *wal.Entry) bool {
 }
 
 func (b *PopulatedMessageStream) filterRelation(entry *wal.Entry) bool {
-	return entry.RelationID > 0 && b.f.FilterRelId(entry.RelationID)
+	return entry.RelationID > 0 && b.f.FilterRelID(entry.RelationID)
 }
 
+//Start begins async selecting on the WAL transaction buffer channel
 func (b *PopulatedMessageStream) Start(entryChan <-chan []*wal.Entry) (<-chan *message.Transaction, error) {
 	txns := make(chan *message.Transaction)
 	go func() {
@@ -40,7 +42,7 @@ func (b *PopulatedMessageStream) Start(entryChan <-chan []*wal.Entry) (<-chan *m
 			txn.Messages = messages
 
 			commit := messages[len(messages)-1]
-			txn.TransactionId = commit.TransactionId
+			txn.TransactionID = commit.TransactionID
 			txn.CommitKey = commit.Key
 			txn.FirstKey = messages[0].Key
 
@@ -54,7 +56,7 @@ func (b *PopulatedMessageStream) Start(entryChan <-chan []*wal.Entry) (<-chan *m
 
 func (b *PopulatedMessageStream) waitForLogToCatchUp(rvMsg *message.Message) {
 
-	curLoc := uint64(rvMsg.LogId)<<32 + uint64(rvMsg.RecordOffset)
+	curLoc := uint64(rvMsg.LogID)<<32 + uint64(rvMsg.RecordOffset)
 
 	lrl := b.sr.LatestReplayLocation()
 	for curLoc > lrl {
@@ -67,13 +69,13 @@ func (b *PopulatedMessageStream) populate(rvMsg *message.Message) {
 	b.waitForLogToCatchUp(rvMsg)
 
 	if rvMsg.Type == message.InsertMessage || rvMsg.Type == message.UpdateMessage || rvMsg.Type == message.DeleteMessage {
-		rvMsg.DatabaseName = b.sr.GetDatabaseName(rvMsg.DatabaseId)
-		rvMsg.Namespace, rvMsg.Relation = b.sr.GetNamespaceAndTable(rvMsg.DatabaseId, rvMsg.RelationId)
+		rvMsg.DatabaseName = b.sr.GetDatabaseName(rvMsg.DatabaseID)
+		rvMsg.Namespace, rvMsg.Relation = b.sr.GetNamespaceAndTable(rvMsg.DatabaseID, rvMsg.RelationID)
 	}
 
 	if rvMsg.Type == message.InsertMessage || rvMsg.Type == message.UpdateMessage {
 
-		vs, err := b.sr.GetFieldValues(rvMsg.DatabaseId, rvMsg.RelationId, rvMsg.Block, rvMsg.Offset)
+		vs, err := b.sr.GetFieldValues(rvMsg.DatabaseID, rvMsg.RelationID, rvMsg.Block, rvMsg.Offset)
 		if err != nil {
 			rvMsg.PopulationError = err
 		} else if vs == nil {
@@ -92,17 +94,17 @@ func (b *PopulatedMessageStream) populate(rvMsg *message.Message) {
 func createMessage(entry *wal.Entry) *message.Message {
 	msg := new(message.Message)
 
-	msg.TimelineId = entry.TimelineID
+	msg.TimelineID = entry.TimelineID
 
-	msg.LogId = entry.ReadFrom.LogID()
+	msg.LogID = entry.ReadFrom.LogID()
 	msg.RecordOffset = entry.ReadFrom.RecordOffset()
 	msg.Key = message.NewKey(entry.TimelineID, entry.ReadFrom.LogID(), entry.ReadFrom.RecordOffset())
 	msg.Prev = message.NewKey(entry.TimelineID, entry.Previous.LogID(), entry.Previous.RecordOffset())
 
-	msg.TransactionId = entry.TransactionID
-	msg.TablespaceId = entry.TablespaceID
-	msg.DatabaseId = entry.DatabaseID
-	msg.RelationId = entry.RelationID
+	msg.TransactionID = entry.TransactionID
+	msg.TablespaceID = entry.TablespaceID
+	msg.DatabaseID = entry.DatabaseID
+	msg.RelationID = entry.RelationID
 
 	msg.Fields = make([]message.Field, 0)
 
@@ -129,7 +131,7 @@ func createMessage(entry *wal.Entry) *message.Message {
 		msg.Type = message.UnknownMessage
 	}
 
-	msg.TupleId = message.NewTupleId(msg.Block, msg.Offset)
+	msg.TupleID = message.NewTupleID(msg.Block, msg.Offset)
 
 	return msg
 }

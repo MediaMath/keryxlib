@@ -45,7 +45,7 @@ func GetDirectoryListing(dir string, fileType FileType, urls ...bool) ([]string,
 		return nil, err
 	}
 
-	var fileNames []string = make([]string, 0)
+	var fileNames []string
 
 	// var i int = 0
 	for _, value := range listing {
