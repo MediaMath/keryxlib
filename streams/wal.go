@@ -1,16 +1,15 @@
-package streamer
+package streams
 
 import (
 	"fmt"
 	"log"
 	"time"
 
-	"github.com/MediaMath/keryxlib/debug"
 	"github.com/MediaMath/keryxlib/pg/wal"
 )
 
-// Streamer models the state of a streamer process
-type Streamer struct {
+//WalStream is an abstraction around WAL entries.
+type WalStream struct {
 	dataDir             string
 	publish             chan<- *wal.Entry
 	stop                chan interface{}
@@ -18,15 +17,15 @@ type Streamer struct {
 	lastOffsetPublished uint64
 }
 
-// New creates a new streamer with xlog directory
-func New(dataDir string) (*Streamer, error) {
-	s := &Streamer{dataDir, nil, make(chan interface{}), nil, 0}
+// NewWalStream creates a new WalStream pointed at the provided dataDir
+func NewWalStream(dataDir string) (*WalStream, error) {
+	s := &WalStream{dataDir, nil, make(chan interface{}), nil, 0}
 
 	return s, nil
 }
 
-// Start begins streaming of events in a go routine and returns a channel of *xlog.XLogRecord
-func (streamer *Streamer) Start(d debug.Outputter) (<-chan *wal.Entry, error) {
+// Start begins streaming of events in a go routine and returns a channel of WAL entries
+func (streamer *WalStream) Start() (<-chan *wal.Entry, error) {
 	out := make(chan *wal.Entry)
 
 	if streamer.publish == nil {
@@ -40,7 +39,7 @@ func (streamer *Streamer) Start(d debug.Outputter) (<-chan *wal.Entry, error) {
 		tick := time.Tick(50 * time.Millisecond)
 
 		go func() {
-			for !streamer.publishUntilErrorOrStopped(d) {
+			for !streamer.publishUntilErrorOrStopped() {
 				<-tick
 			}
 			close(out)
@@ -54,11 +53,11 @@ func (streamer *Streamer) Start(d debug.Outputter) (<-chan *wal.Entry, error) {
 }
 
 // Stop will end publishing to the channel returned by start.
-func (streamer *Streamer) Stop() {
+func (streamer *WalStream) Stop() {
 	streamer.stop <- true
 }
 
-func (streamer *Streamer) isStopped() (stopped bool) {
+func (streamer *WalStream) isStopped() (stopped bool) {
 	select {
 	case <-streamer.stop:
 		stopped = true
@@ -69,7 +68,7 @@ func (streamer *Streamer) isStopped() (stopped bool) {
 	return
 }
 
-func (streamer *Streamer) startAtCheckpoint() error {
+func (streamer *WalStream) startAtCheckpoint() error {
 	cursor, err := wal.NewCursorAtCheckpoint(streamer.dataDir)
 	if err == nil {
 		streamer.cursor = cursor
@@ -78,7 +77,7 @@ func (streamer *Streamer) startAtCheckpoint() error {
 	return err
 }
 
-func (streamer *Streamer) publishUntilErrorOrStopped(d debug.Outputter) (stopped bool) {
+func (streamer *WalStream) publishUntilErrorOrStopped() (stopped bool) {
 	stopped = false
 
 	var ent *wal.Entry
@@ -95,7 +94,6 @@ func (streamer *Streamer) publishUntilErrorOrStopped(d debug.Outputter) (stopped
 
 		if err == nil && ent != nil {
 			if ent.ReadFrom.Offset() > streamer.lastOffsetPublished {
-				d("read entry %v", ent)
 				streamer.publish <- ent
 				*streamer.cursor = currentCursor
 

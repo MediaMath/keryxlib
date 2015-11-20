@@ -19,6 +19,7 @@ type Entry struct {
 	ToOffset      uint16
 }
 
+//EntryBytesSize is the size of the entries.
 const EntryBytesSize = 53
 
 // ToBytes converts an entry to a slice of bytes
