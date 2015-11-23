@@ -17,7 +17,7 @@ func (b *blockReader) readBlock(location Location) []byte {
 
 	file, err := os.Open(filename)
 	if err != nil {
-		panic(fmt.Errorf("failed to open file: %v", err))
+		panic(err)
 	}
 
 	pageOffset := int64(location.StartOfPage().FromStartOfFile())

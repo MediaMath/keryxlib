@@ -3,6 +3,7 @@ package streams
 import (
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/MediaMath/keryxlib/pg/wal"
@@ -112,7 +113,14 @@ func (streamer *WalStream) publishUntilErrorOrStopped() (stopped bool) {
 	}
 
 	if err != nil {
-		log.Printf("error while reading wal: %v", err)
+		//the file can not exist for 2 reasons
+		//1 - can happen a lot, if keryx is staying ahead of the wal log
+		//2 - hopefully not often, if keryx is falling too far behind and the wal is being removed
+		//we are gambling on number 1 being the cause of this error and therefore are not logging it as it is very
+		//noisy if we do
+		if !os.IsNotExist(err) {
+			log.Printf("error while reading wal: %v", err)
+		}
 		streamer.startAtCheckpoint()
 	}
 
