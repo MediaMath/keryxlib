@@ -113,8 +113,11 @@ func (streamer *WalStream) publishUntilErrorOrStopped() (stopped bool) {
 	}
 
 	if err != nil {
-		//Known oddity of keryx attempting to look for a file that hasnt been created yet
-		//dont bother logging that.
+		//the file can not exist for 2 reasons
+		//1 - can happen a lot, if keryx is staying ahead of the wal log
+		//2 - hopefully not often, if keryx is falling too far behind and the wal is being removed
+		//we are gambling on number 1 being the cause of this error and therefore are not logging it as it is very
+		//noisy if we do
 		if !os.IsNotExist(err) {
 			log.Printf("error while reading wal: %v", err)
 		}
