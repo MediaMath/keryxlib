@@ -24,7 +24,7 @@ func (b *TxnBuffer) Start(entryChan <-chan *wal.Entry) (<-chan []*wal.Entry, err
 				continue
 			} else if entry.Type == wal.Unknown {
 				continue
-			} else if b.f.FilterRelID(entry.RelationID) {
+			} else if entry.Type != wal.Commit && b.f.FilterRelID(entry.RelationID) {
 				continue
 			}
 
