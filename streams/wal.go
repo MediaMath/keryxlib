@@ -3,6 +3,7 @@ package streams
 import (
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/MediaMath/keryxlib/pg/wal"
@@ -112,7 +113,11 @@ func (streamer *WalStream) publishUntilErrorOrStopped() (stopped bool) {
 	}
 
 	if err != nil {
-		log.Printf("error while reading wal: %v", err)
+		//Known oddity of keryx attempting to look for a file that hasnt been created yet
+		//dont bother logging that.
+		if !os.IsNotExist(err) {
+			log.Printf("error while reading wal: %v", err)
+		}
 		streamer.startAtCheckpoint()
 	}
 
