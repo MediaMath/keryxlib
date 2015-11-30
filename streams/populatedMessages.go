@@ -12,8 +12,8 @@ import (
 
 //PopulatedMessageStream takes collections of commited WAL entries, organized by transaction and populates them from the db with their current values.  It then publishes them as a Transaction message.
 type PopulatedMessageStream struct {
-	f  filters.MessageFilter
-	sr *pg.SchemaReader
+	Filter       filters.MessageFilter
+	SchemaReader *pg.SchemaReader
 }
 
 func interestingEntryType(entry *wal.Entry) bool {
@@ -21,7 +21,7 @@ func interestingEntryType(entry *wal.Entry) bool {
 }
 
 func (b *PopulatedMessageStream) filterRelation(entry *wal.Entry) bool {
-	return entry.RelationID > 0 && b.f.FilterRelID(entry.RelationID)
+	return entry.RelationID > 0 && b.Filter.FilterRelID(entry.RelationID)
 }
 
 //Start begins async selecting on the WAL transaction buffer channel
@@ -58,10 +58,10 @@ func (b *PopulatedMessageStream) waitForLogToCatchUp(rvMsg *message.Message) {
 
 	curLoc := uint64(rvMsg.LogID)<<32 + uint64(rvMsg.RecordOffset)
 
-	lrl := b.sr.LatestReplayLocation()
+	lrl := b.SchemaReader.LatestReplayLocation()
 	for curLoc > lrl {
 		<-time.After(time.Second)
-		lrl = b.sr.LatestReplayLocation()
+		lrl = b.SchemaReader.LatestReplayLocation()
 	}
 }
 
@@ -69,20 +69,20 @@ func (b *PopulatedMessageStream) populate(rvMsg *message.Message) {
 	b.waitForLogToCatchUp(rvMsg)
 
 	if rvMsg.Type == message.InsertMessage || rvMsg.Type == message.UpdateMessage || rvMsg.Type == message.DeleteMessage {
-		rvMsg.DatabaseName = b.sr.GetDatabaseName(rvMsg.DatabaseID)
-		rvMsg.Namespace, rvMsg.Relation = b.sr.GetNamespaceAndTable(rvMsg.DatabaseID, rvMsg.RelationID)
+		rvMsg.DatabaseName = b.SchemaReader.GetDatabaseName(rvMsg.DatabaseID)
+		rvMsg.Namespace, rvMsg.Relation = b.SchemaReader.GetNamespaceAndTable(rvMsg.DatabaseID, rvMsg.RelationID)
 	}
 
 	if rvMsg.Type == message.InsertMessage || rvMsg.Type == message.UpdateMessage {
 
-		vs, err := b.sr.GetFieldValues(rvMsg.DatabaseID, rvMsg.RelationID, rvMsg.Block, rvMsg.Offset)
+		vs, err := b.SchemaReader.GetFieldValues(rvMsg.DatabaseID, rvMsg.RelationID, rvMsg.Block, rvMsg.Offset)
 		if err != nil {
 			rvMsg.PopulationError = err
 		} else if vs == nil {
 			rvMsg.PopulationError = fmt.Errorf("Message skipped for no fields: %s", rvMsg)
 		} else {
 			for f, v := range vs {
-				if !b.f.FilterColumn(rvMsg.RelFullName(), f.Column) {
+				if !b.Filter.FilterColumn(rvMsg.RelFullName(), f.Column) {
 					rvMsg.AppendField(f.Column, f.String(), v)
 				}
 			}
