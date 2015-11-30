@@ -31,23 +31,25 @@ func (b *PopulatedMessageStream) Start(serverVersion string, entryChan <-chan []
 		for entries := range entryChan {
 			var messages []message.Message
 			for _, entry := range entries {
-				if interestingEntryType(entry) && !b.filterRelation(entry) {
+				if interestingEntryType(entry) && b.sr.HaveConnectionToDb(entry.DatabaseID) && !b.filterRelation(entry) {
 					msg := createMessage(entry)
 					b.populate(msg)
 					messages = append(messages, *msg)
 				}
 			}
 
-			txn := &message.Transaction{}
-			txn.Messages = messages
-			txn.ServerVersion = serverVersion
+			if len(messages) > 0 {
+				txn := &message.Transaction{}
+				txn.Messages = messages
+				txn.ServerVersion = serverVersion
 
-			commit := messages[len(messages)-1]
-			txn.TransactionID = commit.TransactionID
-			txn.CommitKey = commit.Key
-			txn.FirstKey = messages[0].Key
+				commit := messages[len(messages)-1]
+				txn.TransactionID = commit.TransactionID
+				txn.CommitKey = commit.Key
+				txn.FirstKey = messages[0].Key
 
-			txns <- txn
+				txns <- txn
+			}
 		}
 		close(txns)
 	}()
