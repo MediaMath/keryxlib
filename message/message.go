@@ -102,6 +102,7 @@ type Transaction struct {
 	FirstKey      Key       `json:"first"`
 	CommitKey     Key       `json:"commit"`
 	Messages      []Message `json:"messages"`
+	ServerVersion string    `json:"server_version,omitempty"`
 }
 
 //Message is an individual populated commited postgres statement.
@@ -109,9 +110,9 @@ type Message struct {
 	TimelineID      uint32  `json:"-"`
 	LogID           uint32  `json:"-"`
 	RecordOffset    uint32  `json:"-"`
-	TablespaceID    uint32  `json:"-"`
-	DatabaseID      uint32  `json:"-"`
-	RelationID      uint32  `json:"-"`
+	TablespaceID    uint32  `json:"nsid,omitempty"`
+	DatabaseID      uint32  `json:"dbid,omitempty"`
+	RelationID      uint32  `json:"relid,omitempty"`
 	Type            Type    `json:"type"`
 	Key             Key     `json:"key"`
 	Prev            Key     `json:"prev"`
@@ -123,8 +124,7 @@ type Message struct {
 	Offset          uint16  `json:"-"`
 	TupleID         string  `json:"ctid"`
 	Fields          []Field `json:"fields"`
-	ServerVersion   string  `json:",omitempty"`
-	PopulationError error   `json:"population_error"`
+	PopulationError string  `json:"population_error,omitempty"`
 }
 
 //RelFullName is a full table address of the form db.ns.table

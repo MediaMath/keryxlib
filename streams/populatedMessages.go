@@ -25,7 +25,7 @@ func (b *PopulatedMessageStream) filterRelation(entry *wal.Entry) bool {
 }
 
 //Start begins async selecting on the WAL transaction buffer channel
-func (b *PopulatedMessageStream) Start(entryChan <-chan []*wal.Entry) (<-chan *message.Transaction, error) {
+func (b *PopulatedMessageStream) Start(serverVersion string, entryChan <-chan []*wal.Entry) (<-chan *message.Transaction, error) {
 	txns := make(chan *message.Transaction)
 	go func() {
 		for entries := range entryChan {
@@ -40,6 +40,7 @@ func (b *PopulatedMessageStream) Start(entryChan <-chan []*wal.Entry) (<-chan *m
 
 			txn := &message.Transaction{}
 			txn.Messages = messages
+			txn.ServerVersion = serverVersion
 
 			commit := messages[len(messages)-1]
 			txn.TransactionID = commit.TransactionID
@@ -77,9 +78,9 @@ func (b *PopulatedMessageStream) populate(rvMsg *message.Message) {
 
 		vs, err := b.sr.GetFieldValues(rvMsg.DatabaseID, rvMsg.RelationID, rvMsg.Block, rvMsg.Offset)
 		if err != nil {
-			rvMsg.PopulationError = err
+			rvMsg.PopulationError = err.Error()
 		} else if vs == nil {
-			rvMsg.PopulationError = fmt.Errorf("Message skipped for no fields: %s", rvMsg)
+			rvMsg.PopulationError = fmt.Sprintf("Message skipped for no fields.")
 		} else {
 			for f, v := range vs {
 				if !b.f.FilterColumn(rvMsg.RelFullName(), f.Column) {
