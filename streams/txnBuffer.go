@@ -8,8 +8,8 @@ import (
 
 //TxnBuffer is a stream of WAL entries organized by transaction
 type TxnBuffer struct {
-	f                      filters.MessageFilter
-	bufferWorkingDirectory string
+	Filters          filters.MessageFilter
+	WorkingDirectory string
 }
 
 //Start takes a channel of WAL entries and async selects on it.  As it finds a commit for a transaction it publishes a slice of the entries in that transaction.  Aborted transactions are not published.
@@ -17,14 +17,14 @@ func (b *TxnBuffer) Start(entryChan <-chan *wal.Entry) (<-chan []*wal.Entry, err
 	txns := make(chan []*wal.Entry)
 
 	go func() {
-		buffer := message.NewBuffer(b.bufferWorkingDirectory, 10*1024*wal.EntryBytesSize, wal.EntryBytesSize)
+		buffer := message.NewBuffer(b.WorkingDirectory, 10*1024*wal.EntryBytesSize, wal.EntryBytesSize)
 		var lastEntry *wal.Entry
 		for entry := range entryChan {
 			if lastEntry != nil && lastEntry.ReadFrom.Offset() > entry.ReadFrom.Offset() {
 				continue
 			} else if entry.Type == wal.Unknown {
 				continue
-			} else if entry.Type != wal.Commit && b.f.FilterRelID(entry.RelationID) {
+			} else if entry.Type != wal.Commit && b.Filters.FilterRelID(entry.RelationID) {
 				continue
 			}
 

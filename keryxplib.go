@@ -1,14 +1,15 @@
-package streams
+package keryxplib
 
 import (
 	"github.com/MediaMath/keryxlib/filters"
 	"github.com/MediaMath/keryxlib/message"
 	"github.com/MediaMath/keryxlib/pg"
+	"github.com/MediaMath/keryxlib/streams"
 )
 
 //FullStream is a facade around the full process of taking WAL entries and publishing them as txn messages.
 type FullStream struct {
-	walStream *WalStream
+	walStream *streams.WalStream
 	sr        *pg.SchemaReader
 }
 
@@ -26,7 +27,7 @@ func (fs *FullStream) Stop() {
 
 //StartKeryxStream will start all the streams necessary to go from WAL entries to txn messages.
 func (fs *FullStream) StartKeryxStream(serverVersion string, filters filters.MessageFilter, dataDir string, bufferWorkingDirectory string) (<-chan *message.Transaction, error) {
-	walStream, err := NewWalStream(dataDir)
+	walStream, err := streams.NewWalStream(dataDir)
 	if err != nil {
 		return nil, err
 	}
@@ -37,14 +38,14 @@ func (fs *FullStream) StartKeryxStream(serverVersion string, filters filters.Mes
 		return nil, err
 	}
 
-	txnBuffer := &TxnBuffer{filters, bufferWorkingDirectory}
+	txnBuffer := &streams.TxnBuffer{filters, bufferWorkingDirectory}
 	buffered, err := txnBuffer.Start(wal)
 	if err != nil {
 		fs.Stop()
 		return nil, err
 	}
 
-	populated := &PopulatedMessageStream{filters, fs.sr}
+	populated := &streams.PopulatedMessageStream{filters, fs.sr}
 	keryx, err := populated.Start(serverVersion, buffered)
 	if err != nil {
 		fs.Stop()
