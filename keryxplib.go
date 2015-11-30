@@ -26,7 +26,7 @@ func (fs *FullStream) Stop() {
 }
 
 //StartKeryxStream will start all the streams necessary to go from WAL entries to txn messages.
-func (fs *FullStream) StartKeryxStream(filters filters.MessageFilter, dataDir string, bufferWorkingDirectory string) (<-chan *message.Transaction, error) {
+func (fs *FullStream) StartKeryxStream(serverVersion string, filters filters.MessageFilter, dataDir string, bufferWorkingDirectory string) (<-chan *message.Transaction, error) {
 	walStream, err := streams.NewWalStream(dataDir)
 	if err != nil {
 		return nil, err
@@ -46,7 +46,7 @@ func (fs *FullStream) StartKeryxStream(filters filters.MessageFilter, dataDir st
 	}
 
 	populated := &streams.PopulatedMessageStream{filters, fs.sr}
-	keryx, err := populated.Start(buffered)
+	keryx, err := populated.Start(serverVersion, buffered)
 	if err != nil {
 		fs.Stop()
 		return nil, err

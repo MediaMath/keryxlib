@@ -162,6 +162,11 @@ func (sr *SchemaReader) ConvertRelNamesToIds(names []string) map[uint32]string {
 	return ids
 }
 
+func (sr *SchemaReader) HaveConnectionToDb(databaseID uint32) bool {
+	_, ok := sr.conns[databaseID]
+	return ok
+}
+
 func (sr *SchemaReader) getSchema(databaseID uint32, relationID uint32) (*Schema, error) {
 	var count = 0
 

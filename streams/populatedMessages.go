@@ -25,28 +25,31 @@ func (b *PopulatedMessageStream) filterRelation(entry *wal.Entry) bool {
 }
 
 //Start begins async selecting on the WAL transaction buffer channel
-func (b *PopulatedMessageStream) Start(entryChan <-chan []*wal.Entry) (<-chan *message.Transaction, error) {
+func (b *PopulatedMessageStream) Start(serverVersion string, entryChan <-chan []*wal.Entry) (<-chan *message.Transaction, error) {
 	txns := make(chan *message.Transaction)
 	go func() {
 		for entries := range entryChan {
 			var messages []message.Message
 			for _, entry := range entries {
-				if interestingEntryType(entry) && !b.filterRelation(entry) {
+				if interestingEntryType(entry) && b.SchemaReader.HaveConnectionToDb(entry.DatabaseID) && !b.filterRelation(entry) {
 					msg := createMessage(entry)
 					b.populate(msg)
 					messages = append(messages, *msg)
 				}
 			}
 
-			txn := &message.Transaction{}
-			txn.Messages = messages
+			if len(messages) > 0 {
+				txn := &message.Transaction{}
+				txn.Messages = messages
+				txn.ServerVersion = serverVersion
 
-			commit := messages[len(messages)-1]
-			txn.TransactionID = commit.TransactionID
-			txn.CommitKey = commit.Key
-			txn.FirstKey = messages[0].Key
+				commit := messages[len(messages)-1]
+				txn.TransactionID = commit.TransactionID
+				txn.CommitKey = commit.Key
+				txn.FirstKey = messages[0].Key
 
-			txns <- txn
+				txns <- txn
+			}
 		}
 		close(txns)
 	}()
@@ -77,9 +80,9 @@ func (b *PopulatedMessageStream) populate(rvMsg *message.Message) {
 
 		vs, err := b.SchemaReader.GetFieldValues(rvMsg.DatabaseID, rvMsg.RelationID, rvMsg.Block, rvMsg.Offset)
 		if err != nil {
-			rvMsg.PopulationError = err
+			rvMsg.PopulationError = err.Error()
 		} else if vs == nil {
-			rvMsg.PopulationError = fmt.Errorf("Message skipped for no fields: %s", rvMsg)
+			rvMsg.PopulationError = fmt.Sprintf("Message skipped for no fields.")
 		} else {
 			for f, v := range vs {
 				if !b.Filter.FilterColumn(rvMsg.RelFullName(), f.Column) {
