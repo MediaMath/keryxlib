@@ -17,7 +17,7 @@ type PopulatedMessageStream struct {
 }
 
 func interestingEntryType(entry *wal.Entry) bool {
-	return entry.Type == wal.Commit || entry.Type == wal.Insert || entry.Type == wal.Update || entry.Type == wal.Delete
+	return entry.Type == wal.Insert || entry.Type == wal.Update || entry.Type == wal.Delete
 }
 
 func (b *PopulatedMessageStream) filterRelation(entry *wal.Entry) bool {
@@ -43,9 +43,9 @@ func (b *PopulatedMessageStream) Start(serverVersion string, entryChan <-chan []
 				txn.Messages = messages
 				txn.ServerVersion = serverVersion
 
-				commit := messages[len(messages)-1]
+				commit := entries[len(entries)-1]
 				txn.TransactionID = commit.TransactionID
-				txn.CommitKey = commit.Key
+				txn.CommitKey = createKey(commit)
 				txn.FirstKey = messages[0].Key
 
 				txns <- txn
@@ -94,6 +94,14 @@ func (b *PopulatedMessageStream) populate(rvMsg *message.Message) {
 
 }
 
+func createKey(entry *wal.Entry) message.Key {
+	return message.NewKey(entry.TimelineID, entry.ReadFrom.LogID(), entry.ReadFrom.RecordOffset())
+}
+
+func createPrev(entry *wal.Entry) message.Key {
+	return message.NewKey(entry.TimelineID, entry.Previous.LogID(), entry.Previous.RecordOffset())
+}
+
 func createMessage(entry *wal.Entry) *message.Message {
 	msg := new(message.Message)
 
@@ -101,8 +109,8 @@ func createMessage(entry *wal.Entry) *message.Message {
 
 	msg.LogID = entry.ReadFrom.LogID()
 	msg.RecordOffset = entry.ReadFrom.RecordOffset()
-	msg.Key = message.NewKey(entry.TimelineID, entry.ReadFrom.LogID(), entry.ReadFrom.RecordOffset())
-	msg.Prev = message.NewKey(entry.TimelineID, entry.Previous.LogID(), entry.Previous.RecordOffset())
+	msg.Key = createKey(entry)
+	msg.Prev = createPrev(entry)
 
 	msg.TransactionID = entry.TransactionID
 	msg.TablespaceID = entry.TablespaceID
