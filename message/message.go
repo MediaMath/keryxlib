@@ -1,6 +1,9 @@
 package message
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 const (
 	keyStr   = "%.8X%.8X%.8X"
@@ -98,33 +101,38 @@ func parseMessageKey(key Key) (timelineID uint32, logID uint32, recordOffset uin
 
 //Transaction is collection of messages all commited on the same postgres commit.
 type Transaction struct {
-	TransactionID uint32    `json:"xid"`
-	FirstKey      Key       `json:"first"`
-	CommitKey     Key       `json:"commit"`
-	Messages      []Message `json:"messages"`
-	ServerVersion string    `json:"server_version,omitempty"`
+	TransactionID   uint32    `json:"xid"`
+	FirstKey        Key       `json:"first"`
+	CommitKey       Key       `json:"commit"`
+	CommitTime      time.Time `json:"commit_time"`
+	TransactionTime time.Time `json:"transaction_time"`
+	Messages        []Message `json:"messages"`
+	ServerVersion   string    `json:"server_version,omitempty"`
 }
 
 //Message is an individual populated commited postgres statement.
 type Message struct {
-	TimelineID      uint32  `json:"-"`
-	LogID           uint32  `json:"-"`
-	RecordOffset    uint32  `json:"-"`
-	TablespaceID    uint32  `json:"nsid,omitempty"`
-	DatabaseID      uint32  `json:"dbid,omitempty"`
-	RelationID      uint32  `json:"relid,omitempty"`
-	Type            Type    `json:"type"`
-	Key             Key     `json:"key"`
-	Prev            Key     `json:"prev"`
-	TransactionID   uint32  `json:"xid"`
-	DatabaseName    string  `json:"db"`
-	Namespace       string  `json:"ns"`
-	Relation        string  `json:"rel"`
-	Block           uint32  `json:"-"`
-	Offset          uint16  `json:"-"`
-	TupleID         string  `json:"ctid"`
-	Fields          []Field `json:"fields"`
-	PopulationError string  `json:"population_error,omitempty"`
+	TimelineID      uint32    `json:"-"`
+	LogID           uint32    `json:"-"`
+	RecordOffset    uint32    `json:"-"`
+	TablespaceID    uint32    `json:"nsid,omitempty"`
+	DatabaseID      uint32    `json:"dbid,omitempty"`
+	RelationID      uint32    `json:"relid,omitempty"`
+	Type            Type      `json:"type"`
+	Key             Key       `json:"key"`
+	Prev            Key       `json:"prev"`
+	TransactionID   uint32    `json:"xid"`
+	DatabaseName    string    `json:"db"`
+	Namespace       string    `json:"ns"`
+	Relation        string    `json:"rel"`
+	Block           uint32    `json:"-"`
+	Offset          uint16    `json:"-"`
+	TupleID         string    `json:"ctid"`
+	PrevTupleID     string    `json:"prev_ctid,omitempty"`
+	Fields          []Field   `json:"fields"`
+	PopulationError string    `json:"population_error,omitempty"`
+	PopulateTime    time.Time `json:"populate_time"`
+	ParseTime       time.Time `json:"parse_time"`
 }
 
 //RelFullName is a full table address of the form db.ns.table

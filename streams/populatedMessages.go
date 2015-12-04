@@ -34,6 +34,7 @@ func (b *PopulatedMessageStream) Start(serverVersion string, entryChan <-chan []
 				if interestingEntryType(entry) && b.SchemaReader.HaveConnectionToDb(entry.DatabaseID) && !b.filterRelation(entry) {
 					msg := createMessage(entry)
 					b.populate(msg)
+					msg.PopulateTime = time.Now().UTC()
 					messages = append(messages, *msg)
 				}
 			}
@@ -47,7 +48,9 @@ func (b *PopulatedMessageStream) Start(serverVersion string, entryChan <-chan []
 				txn.TransactionID = commit.TransactionID
 				txn.CommitKey = createKey(commit)
 				txn.FirstKey = messages[0].Key
+				txn.CommitTime = time.Unix(0, commit.ParseTime).UTC()
 
+				txn.TransactionTime = time.Now().UTC()
 				txns <- txn
 			}
 		}
@@ -105,6 +108,7 @@ func createPrev(entry *wal.Entry) message.Key {
 func createMessage(entry *wal.Entry) *message.Message {
 	msg := new(message.Message)
 
+	msg.ParseTime = time.Unix(0, entry.ParseTime).UTC()
 	msg.TimelineID = entry.TimelineID
 
 	msg.LogID = entry.ReadFrom.LogID()
@@ -129,6 +133,7 @@ func createMessage(entry *wal.Entry) *message.Message {
 		msg.Type = message.UpdateMessage
 		msg.Block = entry.ToBlock
 		msg.Offset = entry.ToOffset
+		msg.PrevTupleID = message.NewTupleID(entry.FromBlock, entry.FromOffset)
 
 	case wal.Delete:
 		msg.Type = message.DeleteMessage

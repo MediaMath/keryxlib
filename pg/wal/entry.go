@@ -1,6 +1,10 @@
 package wal
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+	"unsafe"
+)
 
 // Entry contains the data extracted from insert/update/delete/commit records
 type Entry struct {
@@ -17,13 +21,15 @@ type Entry struct {
 	FromOffset    uint16
 	ToBlock       uint32
 	ToOffset      uint16
+	ParseTime     int64
 }
 
 //EntryBytesSize is the size of the entries.
-const EntryBytesSize = 53
+const EntryBytesSize = 61
 
 // ToBytes converts an entry to a slice of bytes
 func (e Entry) ToBytes() []byte {
+	timePtr := (*uint64)(unsafe.Pointer(&e.ParseTime))
 	return []byte{
 		byte(e.Type),
 		byte(e.ReadFrom.offset >> 56),
@@ -78,11 +84,21 @@ func (e Entry) ToBytes() []byte {
 		byte(e.ToBlock),
 		byte(e.ToOffset >> 8),
 		byte(e.ToOffset),
+		byte(*timePtr >> 56),
+		byte(*timePtr >> 48),
+		byte(*timePtr >> 40),
+		byte(*timePtr >> 32),
+		byte(*timePtr >> 24),
+		byte(*timePtr >> 16),
+		byte(*timePtr >> 8),
+		byte(*timePtr),
 	}
 }
 
 // EntryFromBytes reconstructs an entry from a slice of bytes
 func EntryFromBytes(bs []byte) Entry {
+	parseTime := uint64(bs[53])<<56 + uint64(bs[54])<<48 + uint64(bs[55])<<40 + uint64(bs[56])<<32 + uint64(bs[57])<<24 + uint64(bs[58])<<16 + uint64(bs[59])<<8 + uint64(bs[60])
+
 	return Entry{
 		Type:          RecordType(bs[0]),
 		ReadFrom:      NewLocationWithDefaults(uint64(bs[1])<<56 + uint64(bs[2])<<48 + uint64(bs[3])<<40 + uint64(bs[4])<<32 + uint64(bs[5])<<24 + uint64(bs[6])<<16 + uint64(bs[7])<<8 + uint64(bs[8])),
@@ -97,6 +113,7 @@ func EntryFromBytes(bs []byte) Entry {
 		FromOffset:    uint16(bs[45])<<8 + uint16(bs[46]),
 		ToBlock:       uint32(bs[47])<<24 + uint32(bs[48])<<16 + uint32(bs[49])<<8 + uint32(bs[50]),
 		ToOffset:      uint16(bs[51])<<8 + uint16(bs[52]),
+		ParseTime:     int64(parseTime),
 	}
 }
 
@@ -122,6 +139,7 @@ func NewEntry(page *Page, recordHeader *RecordHeader, recordBody *RecordBody) *E
 		entry.ToOffset = heapData.ToOffset()
 	}
 
+	entry.ParseTime = time.Now().UnixNano()
 	return entry
 }
 
