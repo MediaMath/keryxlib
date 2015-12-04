@@ -6,9 +6,9 @@ import (
 	"github.com/MediaMath/keryxlib/message"
 )
 
-// Condition models the an assertion that can be applied to a Message
+// Condition models the an assertion that can be applied to a Transaction
 type Condition interface {
-	Check(message.Message) bool
+	Check(*message.Transaction) bool
 }
 
 // CheckClient tests a condition against a client output stream
@@ -21,10 +21,8 @@ checkLoop:
 			break checkLoop
 		case txn, ok := <-stream:
 			if ok {
-				for _, message := range txn.Messages {
-					if condition.Check(message) {
-						return true
-					}
+				if condition.Check(txn) {
+					return true
 				}
 			} else {
 				break checkLoop

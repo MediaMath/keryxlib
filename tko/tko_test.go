@@ -26,7 +26,7 @@ var falseCondition = BoolCondition(false)
 
 type BoolCondition bool
 
-func (c BoolCondition) Check(message.Message) bool {
+func (c BoolCondition) Check(*message.Transaction) bool {
 	return bool(c)
 }
 
