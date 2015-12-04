@@ -48,7 +48,7 @@ func (b *PopulatedMessageStream) Start(serverVersion string, entryChan <-chan []
 				txn.TransactionID = commit.TransactionID
 				txn.CommitKey = createKey(commit)
 				txn.FirstKey = messages[0].Key
-				txn.CommitTime = commit.ParseTime
+				txn.CommitTime = time.Unix(0, commit.ParseTime).UTC()
 
 				txn.TransactionTime = time.Now().UTC()
 				txns <- txn
@@ -108,7 +108,7 @@ func createPrev(entry *wal.Entry) message.Key {
 func createMessage(entry *wal.Entry) *message.Message {
 	msg := new(message.Message)
 
-	msg.ParseTime = entry.ParseTime
+	msg.ParseTime = time.Unix(0, entry.ParseTime).UTC()
 	msg.TimelineID = entry.TimelineID
 
 	msg.LogID = entry.ReadFrom.LogID()
