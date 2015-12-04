@@ -133,6 +133,7 @@ func createMessage(entry *wal.Entry) *message.Message {
 		msg.Type = message.UpdateMessage
 		msg.Block = entry.ToBlock
 		msg.Offset = entry.ToOffset
+		msg.PrevTupleID = message.NewTupleID(entry.FromBlock, entry.FromOffset)
 
 	case wal.Delete:
 		msg.Type = message.DeleteMessage

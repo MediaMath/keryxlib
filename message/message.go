@@ -128,6 +128,7 @@ type Message struct {
 	Block           uint32    `json:"-"`
 	Offset          uint16    `json:"-"`
 	TupleID         string    `json:"ctid"`
+	PrevTupleID     string    `json:"prev_ctid,omitempty"`
 	Fields          []Field   `json:"fields"`
 	PopulationError string    `json:"population_error,omitempty"`
 	PopulateTime    time.Time `json:"populate_time"`
