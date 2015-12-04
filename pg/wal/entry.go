@@ -1,6 +1,9 @@
 package wal
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 // Entry contains the data extracted from insert/update/delete/commit records
 type Entry struct {
@@ -17,6 +20,7 @@ type Entry struct {
 	FromOffset    uint16
 	ToBlock       uint32
 	ToOffset      uint16
+	ParseTime     time.Time
 }
 
 //EntryBytesSize is the size of the entries.
@@ -122,6 +126,7 @@ func NewEntry(page *Page, recordHeader *RecordHeader, recordBody *RecordBody) *E
 		entry.ToOffset = heapData.ToOffset()
 	}
 
+	entry.ParseTime = time.Now().UTC()
 	return entry
 }
 
