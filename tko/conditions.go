@@ -9,8 +9,11 @@ import (
 
 //ConditionDefinition wraps around the condition and allows it to be parsed generically.  Only 1 of the fields will be returned if multiple exist
 type ConditionDefinition struct {
-	IsTransaction *TransactionIDMatches `json:"is_transaction"`
-	HasMessage    *HasMessage           `json:"has_message"`
+	IsTransaction *TransactionIDMatches  `json:"transaction_is"`
+	HasMessage    *HasMessage            `json:"has_message"`
+	Not           *ConditionDefinition   `json:"not"`
+	AnyOf         *[]ConditionDefinition `json:"any_of"`
+	AllOf         *[]ConditionDefinition `json:"all_of"`
 }
 
 func ReadConditionFromJSON(jsonStr string) (Condition, error) {
@@ -21,6 +24,10 @@ func ReadConditionFromJSON(jsonStr string) (Condition, error) {
 		return nil, err
 	}
 
+	return conditionFromDefinition(parsed)
+}
+
+func conditionFromDefinition(parsed ConditionDefinition) (Condition, error) {
 	if parsed.IsTransaction != nil {
 		return parsed.IsTransaction, nil
 	}
@@ -29,7 +36,85 @@ func ReadConditionFromJSON(jsonStr string) (Condition, error) {
 		return parsed.HasMessage, nil
 	}
 
-	return nil, fmt.Errorf("Unknown condition: %v %s", parsed, jsonStr)
+	if parsed.Not != nil {
+		cond, err := conditionFromDefinition(*parsed.Not)
+		if err != nil {
+			return nil, err
+		}
+		return &Not{cond}, nil
+	}
+
+	if parsed.AnyOf != nil {
+		conditions := []Condition{}
+		for _, definition := range *parsed.AnyOf {
+			cond, err := conditionFromDefinition(definition)
+			if err != nil {
+				return nil, err
+			}
+			conditions = append(conditions, cond)
+		}
+
+		return AnyOf(conditions), nil
+	}
+
+	if parsed.AllOf != nil {
+		conditions := []Condition{}
+		for _, definition := range *parsed.AllOf {
+			cond, err := conditionFromDefinition(definition)
+			if err != nil {
+				return nil, err
+			}
+			conditions = append(conditions, cond)
+		}
+
+		return AllOf(conditions), nil
+	}
+
+	return nil, fmt.Errorf("Unknown condition: %v", parsed)
+}
+
+//Not will return the inverse of the underlying condition.
+type Not struct {
+	condition Condition
+}
+
+func (c *Not) Check(txn *message.Transaction) bool {
+	orig := c.condition.Check(txn)
+	return !orig
+}
+
+//AnyOf will return true if any of its underlying Conditions return true. Logical Or.
+type AnyOf []Condition
+
+func (c AnyOf) Check(txn *message.Transaction) bool {
+	if len(c) == 0 {
+		return false
+	}
+
+	for _, condition := range c {
+		if condition.Check(txn) {
+			return true
+		}
+	}
+
+	return false
+}
+
+//AllOf will return true if all of its underlying Conditions return true. Logical And.
+type AllOf []Condition
+
+func (c AllOf) Check(txn *message.Transaction) bool {
+	if len(c) == 0 {
+		return true
+	}
+
+	for _, condition := range c {
+		if !condition.Check(txn) {
+			return false
+		}
+	}
+
+	return true
 }
 
 //TransactionIDMatches will match a specific TransactionID
