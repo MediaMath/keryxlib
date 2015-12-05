@@ -7,34 +7,41 @@ import (
 )
 
 func TestAnyOf(t *testing.T) {
-	cond := condition(t, `{"any_of": [{"transaction_is": {"id": 1234}}, {"transaction_is": {"id":567}}]}`)
+	cond := condition(t, `{"any_of": [{"transaction_is": {"xid": 1234}}, {"transaction_is": {"xid":567}}]}`)
 	matches(cond, &message.Transaction{TransactionID: 1234}, t, "AnyOf")
 	matches(cond, &message.Transaction{TransactionID: 567}, t, "AnyOf")
 	doesntMatch(cond, &message.Transaction{TransactionID: 12345}, t, "AnyOf")
 }
 
 func TestAllOf(t *testing.T) {
-	cond := condition(t, `{"all_of": [{"transaction_is": {"id": 1234}}, {"has_message": {"database_name":"foo"}}]}`)
+	cond := condition(t, `{"all_of": [{"transaction_is": {"xid": 1234}}, {"has_message": {"db":"foo"}}]}`)
 	matches(cond, &message.Transaction{TransactionID: 1234, Messages: []message.Message{message.Message{DatabaseName: "foo"}}}, t, "AllOf")
 	doesntMatch(cond, &message.Transaction{TransactionID: 1234}, t, "AllOf")
 }
 
 func TestNot(t *testing.T) {
-	cond := condition(t, `{"not":{"transaction_is": {"id": 1234}}}`)
+	cond := condition(t, `{"not":{"transaction_is": {"xid": 1234}}}`)
 
 	matches(cond, &message.Transaction{TransactionID: 12345}, t, "Not")
 	doesntMatch(cond, &message.Transaction{TransactionID: 1234}, t, "Not")
 }
 
 func TestTransactionIs(t *testing.T) {
-	cond := condition(t, `{"transaction_is": {"id": 1234}}`)
+	cond := condition(t, `{"transaction_is": {"xid": 1234}}`)
 
 	matches(cond, &message.Transaction{TransactionID: 1234}, t, "TransactionId")
 	doesntMatch(cond, &message.Transaction{TransactionID: 12345}, t, "TransactionId")
 }
 
+func TestValidate(t *testing.T) {
+	_, err := ReadConditionFromJSON(`{"not":{"transaction_is": {"id": 1234}}}`)
+	if err == nil {
+		t.Fatal("Should not have worked.")
+	}
+}
+
 func TestHasMessage(t *testing.T) {
-	cond := condition(t, `{"has_message": {"database_name": "foo"}}`)
+	cond := condition(t, `{"has_message": {"db": "foo"}}`)
 
 	matches(cond, &message.Transaction{Messages: []message.Message{message.Message{DatabaseName: "foo"}, message.Message{DatabaseName: "goo"}}}, t, "HasMessage matches any")
 	doesntMatch(cond, &message.Transaction{Messages: []message.Message{message.Message{DatabaseName: "boo"}, message.Message{DatabaseName: "goo"}}}, t, "HasMessage doesnt match if none")
@@ -62,6 +69,11 @@ func doesntMatch(condition Condition, txn *message.Transaction, t *testing.T, ms
 
 func condition(t *testing.T, json string) Condition {
 	cond, err := ReadConditionFromJSON(json)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = cond.validate()
 	if err != nil {
 		t.Fatal(err)
 	}

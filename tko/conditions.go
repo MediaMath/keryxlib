@@ -27,50 +27,43 @@ func ReadConditionFromJSON(jsonStr string) (Condition, error) {
 	return conditionFromDefinition(parsed)
 }
 
-func conditionFromDefinition(parsed ConditionDefinition) (Condition, error) {
+func conditionFromDefinition(parsed ConditionDefinition) (cond Condition, err error) {
 	if parsed.IsTransaction != nil {
-		return parsed.IsTransaction, nil
+		cond = parsed.IsTransaction
+	} else if parsed.HasMessage != nil {
+		cond = parsed.HasMessage
+	} else if parsed.Not != nil {
+		var inner Condition
+		inner, err = conditionFromDefinition(*parsed.Not)
+		if err == nil {
+			cond = &Not{inner}
+		}
+	} else if parsed.AnyOf != nil {
+		cond, err = AnyOfThese(*parsed.AnyOf)
+	} else if parsed.AllOf != nil {
+		cond, err = AllOfThese(*parsed.AllOf)
+	} else {
+		err = fmt.Errorf("Unknown condition: %v", parsed)
 	}
 
-	if parsed.HasMessage != nil {
-		return parsed.HasMessage, nil
+	if cond != nil {
+		err = cond.validate()
 	}
 
-	if parsed.Not != nil {
-		cond, err := conditionFromDefinition(*parsed.Not)
+	return
+}
+
+func definitionsToConditions(definitions []ConditionDefinition) ([]Condition, error) {
+	conditions := []Condition{}
+	for _, definition := range definitions {
+		cond, err := conditionFromDefinition(definition)
 		if err != nil {
 			return nil, err
 		}
-		return &Not{cond}, nil
+		conditions = append(conditions, cond)
 	}
 
-	if parsed.AnyOf != nil {
-		conditions := []Condition{}
-		for _, definition := range *parsed.AnyOf {
-			cond, err := conditionFromDefinition(definition)
-			if err != nil {
-				return nil, err
-			}
-			conditions = append(conditions, cond)
-		}
-
-		return AnyOf(conditions), nil
-	}
-
-	if parsed.AllOf != nil {
-		conditions := []Condition{}
-		for _, definition := range *parsed.AllOf {
-			cond, err := conditionFromDefinition(definition)
-			if err != nil {
-				return nil, err
-			}
-			conditions = append(conditions, cond)
-		}
-
-		return AllOf(conditions), nil
-	}
-
-	return nil, fmt.Errorf("Unknown condition: %v", parsed)
+	return conditions, nil
 }
 
 //Not will return the inverse of the underlying condition.
@@ -83,8 +76,26 @@ func (c *Not) Check(txn *message.Transaction) bool {
 	return !orig
 }
 
+func (c *Not) validate() error {
+	if c.condition == nil {
+		return fmt.Errorf("No condition to invert.")
+	}
+
+	return nil
+}
+
 //AnyOf will return true if any of its underlying Conditions return true. Logical Or.
 type AnyOf []Condition
+
+//AnyOfThese creates an AnyOf from other definitions
+func AnyOfThese(definitions []ConditionDefinition) (anyOf AnyOf, err error) {
+	conditions, err := definitionsToConditions(definitions)
+	if err == nil {
+		anyOf = AnyOf(conditions)
+	}
+
+	return
+}
 
 func (c AnyOf) Check(txn *message.Transaction) bool {
 	if len(c) == 0 {
@@ -100,8 +111,26 @@ func (c AnyOf) Check(txn *message.Transaction) bool {
 	return false
 }
 
+func (c AnyOf) validate() error {
+	if len(c) < 1 {
+		return fmt.Errorf("Must have conditions for AnyOf")
+	}
+
+	return nil
+}
+
 //AllOf will return true if all of its underlying Conditions return true. Logical And.
 type AllOf []Condition
+
+//AllOfThese creates an AllOf Condition from a list of definitions
+func AllOfThese(definitions []ConditionDefinition) (allOf AllOf, err error) {
+	conditions, err := definitionsToConditions(definitions)
+	if err == nil {
+		allOf = AllOf(conditions)
+	}
+
+	return
+}
 
 func (c AllOf) Check(txn *message.Transaction) bool {
 	if len(c) == 0 {
@@ -117,6 +146,14 @@ func (c AllOf) Check(txn *message.Transaction) bool {
 	return true
 }
 
+func (c AllOf) validate() error {
+	if len(c) < 1 {
+		return fmt.Errorf("Must have conditions for AllOf")
+	}
+
+	return nil
+}
+
 //TransactionIDMatches will match a specific TransactionID
 type TransactionIDMatches struct {
 	TransactionID uint32 `json:"xid"`
@@ -124,6 +161,14 @@ type TransactionIDMatches struct {
 
 func (c *TransactionIDMatches) Check(txn *message.Transaction) bool {
 	return c.TransactionID == txn.TransactionID
+}
+
+func (c *TransactionIDMatches) validate() error {
+	if c.TransactionID < 1 {
+		return fmt.Errorf("TransactionID is missing or not positive: %v", c.TransactionID)
+	}
+
+	return nil
 }
 
 //HasMessage will match if any message in the transaction matches the provided message.
@@ -146,6 +191,14 @@ func (c *HasMessage) Check(txn *message.Transaction) bool {
 	}
 
 	return false
+}
+
+func (c *HasMessage) validate() error {
+	if c.Type == nil && c.DatabaseName == nil && c.Namespace == nil && c.Relation == nil && c.TupleID == nil && c.PrevTupleID == nil && len(c.FieldsMatch) == 0 && c.MissingFields == nil {
+		return fmt.Errorf("No message conditions specified.")
+	}
+
+	return nil
 }
 
 func (c *HasMessage) checkMessage(m message.Message) bool {
