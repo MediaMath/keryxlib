@@ -119,7 +119,7 @@ func (c AllOf) Check(txn *message.Transaction) bool {
 
 //TransactionIDMatches will match a specific TransactionID
 type TransactionIDMatches struct {
-	TransactionID uint32 `json:"id"`
+	TransactionID uint32 `json:"xid"`
 }
 
 func (c *TransactionIDMatches) Check(txn *message.Transaction) bool {
@@ -129,11 +129,11 @@ func (c *TransactionIDMatches) Check(txn *message.Transaction) bool {
 //HasMessage will match if any message in the transaction matches the provided message.
 type HasMessage struct {
 	Type          *message.Type          `json:"type"`
-	DatabaseName  *string                `json:"database_name"`
-	Namespace     *string                `json:"namespace"`
-	Relation      *string                `json:"relation"`
-	TupleID       *string                `json:"tuple_id"`
-	PrevTupleID   *string                `json:"prev_tuple_id"`
+	DatabaseName  *string                `json:"db"`
+	Namespace     *string                `json:"ns`
+	Relation      *string                `json:"rel"`
+	TupleID       *string                `json:"ctid"`
+	PrevTupleID   *string                `json:"prev_ctid"`
 	FieldsMatch   map[string]interface{} `json:"fields_match"`
 	MissingFields *bool                  `json:"missing_fields"`
 }
