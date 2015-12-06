@@ -9,6 +9,7 @@ import (
 
 //ConditionDefinition wraps around the condition and allows it to be parsed generically.  Only 1 of the fields will be returned if multiple exist
 type ConditionDefinition struct {
+	Always        *Always                `json:"always"`
 	IsTransaction *TransactionIDMatches  `json:"transaction_is"`
 	HasMessage    *HasMessage            `json:"has_message"`
 	Not           *ConditionDefinition   `json:"not"`
@@ -30,6 +31,8 @@ func ReadConditionFromJSON(jsonStr string) (Condition, error) {
 func conditionFromDefinition(parsed ConditionDefinition) (cond Condition, err error) {
 	if parsed.IsTransaction != nil {
 		cond = parsed.IsTransaction
+	} else if parsed.Always != nil {
+		cond = parsed.Always
 	} else if parsed.HasMessage != nil {
 		cond = parsed.HasMessage
 	} else if parsed.Not != nil {
@@ -64,6 +67,17 @@ func definitionsToConditions(definitions []ConditionDefinition) ([]Condition, er
 	}
 
 	return conditions, nil
+}
+
+//Always will always return true
+type Always struct{}
+
+func (c *Always) Check(txn *message.Transaction) bool {
+	return true
+}
+
+func (c *Always) validate() error {
+	return nil
 }
 
 //Not will return the inverse of the underlying condition.

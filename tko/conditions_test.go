@@ -6,6 +6,12 @@ import (
 	"github.com/MediaMath/keryxlib/message"
 )
 
+func TestAlways(t *testing.T) {
+	cond := condition(t, `{"always": {}}`)
+	matches(cond, &message.Transaction{TransactionID: 1234}, t, "Always")
+	matches(cond, &message.Transaction{TransactionID: 7878}, t, "Always")
+}
+
 func TestAnyOf(t *testing.T) {
 	cond := condition(t, `{"any_of": [{"transaction_is": {"xid": 1234}}, {"transaction_is": {"xid":567}}]}`)
 	matches(cond, &message.Transaction{TransactionID: 1234}, t, "AnyOf")
