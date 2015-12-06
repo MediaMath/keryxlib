@@ -233,7 +233,7 @@ type checkable struct {
 }
 
 func (c checkable) missingFields() bool {
-	return c.cond.MissingFields == nil || (c.msg.Type != message.DeleteMessage && (len(c.msg.Fields) == 0) == *c.cond.MissingFields)
+	return c.cond.MissingFields == nil || c.msg.MissingFields() == *c.cond.MissingFields
 }
 
 func (c checkable) typeMatches() bool {

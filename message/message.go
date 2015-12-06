@@ -135,6 +135,10 @@ type Message struct {
 	ParseTime       time.Time `json:"parse_time"`
 }
 
+func (msg *Message) MissingFields() bool {
+	return msg.Type != DeleteMessage && len(msg.Fields) == 0
+}
+
 //RelFullName is a full table address of the form db.ns.table
 func (msg *Message) RelFullName() string {
 	return fmt.Sprintf("%s.%s.%s", msg.DatabaseName, msg.Namespace, msg.Relation)
