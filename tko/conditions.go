@@ -147,10 +147,6 @@ func AllOfThese(definitions []ConditionDefinition) (allOf AllOf, err error) {
 }
 
 func (c AllOf) Check(txn *message.Transaction) bool {
-	if len(c) == 0 {
-		return true
-	}
-
 	for _, condition := range c {
 		if !condition.Check(txn) {
 			return false
