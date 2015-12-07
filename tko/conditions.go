@@ -9,8 +9,12 @@ import (
 
 //ConditionDefinition wraps around the condition and allows it to be parsed generically.  Only 1 of the fields will be returned if multiple exist
 type ConditionDefinition struct {
-	IsTransaction *TransactionIDMatches `json:"is_transaction"`
-	HasMessage    *HasMessage           `json:"has_message"`
+	Always        *Always                `json:"always"`
+	IsTransaction *TransactionIDMatches  `json:"transaction_is"`
+	HasMessage    *HasMessage            `json:"has_message"`
+	Not           *ConditionDefinition   `json:"not"`
+	AnyOf         *[]ConditionDefinition `json:"any_of"`
+	AllOf         *[]ConditionDefinition `json:"all_of"`
 }
 
 func ReadConditionFromJSON(jsonStr string) (Condition, error) {
@@ -21,34 +25,170 @@ func ReadConditionFromJSON(jsonStr string) (Condition, error) {
 		return nil, err
 	}
 
+	return conditionFromDefinition(parsed)
+}
+
+func conditionFromDefinition(parsed ConditionDefinition) (cond Condition, err error) {
 	if parsed.IsTransaction != nil {
-		return parsed.IsTransaction, nil
+		cond = parsed.IsTransaction
+	} else if parsed.Always != nil {
+		cond = parsed.Always
+	} else if parsed.HasMessage != nil {
+		cond = parsed.HasMessage
+	} else if parsed.Not != nil {
+		var inner Condition
+		inner, err = conditionFromDefinition(*parsed.Not)
+		if err == nil {
+			cond = &Not{inner}
+		}
+	} else if parsed.AnyOf != nil {
+		cond, err = AnyOfThese(*parsed.AnyOf)
+	} else if parsed.AllOf != nil {
+		cond, err = AllOfThese(*parsed.AllOf)
+	} else {
+		err = fmt.Errorf("Unknown condition: %v", parsed)
 	}
 
-	if parsed.HasMessage != nil {
-		return parsed.HasMessage, nil
+	if cond != nil {
+		err = cond.validate()
 	}
 
-	return nil, fmt.Errorf("Unknown condition: %v %s", parsed, jsonStr)
+	return
+}
+
+func definitionsToConditions(definitions []ConditionDefinition) ([]Condition, error) {
+	conditions := []Condition{}
+	for _, definition := range definitions {
+		cond, err := conditionFromDefinition(definition)
+		if err != nil {
+			return nil, err
+		}
+		conditions = append(conditions, cond)
+	}
+
+	return conditions, nil
+}
+
+//Always will always return true
+type Always struct{}
+
+func (c *Always) Check(txn *message.Transaction) bool {
+	return true
+}
+
+func (c *Always) validate() error {
+	return nil
+}
+
+//Not will return the inverse of the underlying condition.
+type Not struct {
+	condition Condition
+}
+
+func (c *Not) Check(txn *message.Transaction) bool {
+	orig := c.condition.Check(txn)
+	return !orig
+}
+
+func (c *Not) validate() error {
+	if c.condition == nil {
+		return fmt.Errorf("No condition to invert.")
+	}
+
+	return nil
+}
+
+//AnyOf will return true if any of its underlying Conditions return true. Logical Or.
+type AnyOf []Condition
+
+//AnyOfThese creates an AnyOf from other definitions
+func AnyOfThese(definitions []ConditionDefinition) (anyOf AnyOf, err error) {
+	conditions, err := definitionsToConditions(definitions)
+	if err == nil {
+		anyOf = AnyOf(conditions)
+	}
+
+	return
+}
+
+func (c AnyOf) Check(txn *message.Transaction) bool {
+	if len(c) == 0 {
+		return false
+	}
+
+	for _, condition := range c {
+		if condition.Check(txn) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (c AnyOf) validate() error {
+	if len(c) < 1 {
+		return fmt.Errorf("Must have conditions for AnyOf")
+	}
+
+	return nil
+}
+
+//AllOf will return true if all of its underlying Conditions return true. Logical And.
+type AllOf []Condition
+
+//AllOfThese creates an AllOf Condition from a list of definitions
+func AllOfThese(definitions []ConditionDefinition) (allOf AllOf, err error) {
+	conditions, err := definitionsToConditions(definitions)
+	if err == nil {
+		allOf = AllOf(conditions)
+	}
+
+	return
+}
+
+func (c AllOf) Check(txn *message.Transaction) bool {
+	for _, condition := range c {
+		if !condition.Check(txn) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (c AllOf) validate() error {
+	if len(c) < 1 {
+		return fmt.Errorf("Must have conditions for AllOf")
+	}
+
+	return nil
 }
 
 //TransactionIDMatches will match a specific TransactionID
 type TransactionIDMatches struct {
-	TransactionID uint32 `json:"id"`
+	TransactionID uint32 `json:"xid"`
 }
 
 func (c *TransactionIDMatches) Check(txn *message.Transaction) bool {
 	return c.TransactionID == txn.TransactionID
 }
 
+func (c *TransactionIDMatches) validate() error {
+	if c.TransactionID < 1 {
+		return fmt.Errorf("TransactionID is missing or not positive: %v", c.TransactionID)
+	}
+
+	return nil
+}
+
 //HasMessage will match if any message in the transaction matches the provided message.
 type HasMessage struct {
 	Type          *message.Type          `json:"type"`
-	DatabaseName  *string                `json:"database_name"`
-	Namespace     *string                `json:"namespace"`
-	Relation      *string                `json:"relation"`
-	TupleID       *string                `json:"tuple_id"`
-	PrevTupleID   *string                `json:"prev_tuple_id"`
+	DatabaseName  *string                `json:"db"`
+	Namespace     *string                `json:"ns`
+	Relation      *string                `json:"rel"`
+	TupleID       *string                `json:"ctid"`
+	PrevTupleID   *string                `json:"prev_ctid"`
 	FieldsMatch   map[string]interface{} `json:"fields_match"`
 	MissingFields *bool                  `json:"missing_fields"`
 }
@@ -61,6 +201,14 @@ func (c *HasMessage) Check(txn *message.Transaction) bool {
 	}
 
 	return false
+}
+
+func (c *HasMessage) validate() error {
+	if c.Type == nil && c.DatabaseName == nil && c.Namespace == nil && c.Relation == nil && c.TupleID == nil && c.PrevTupleID == nil && len(c.FieldsMatch) == 0 && c.MissingFields == nil {
+		return fmt.Errorf("No message conditions specified.")
+	}
+
+	return nil
 }
 
 func (c *HasMessage) checkMessage(m message.Message) bool {
@@ -81,7 +229,7 @@ type checkable struct {
 }
 
 func (c checkable) missingFields() bool {
-	return c.cond.MissingFields == nil || (c.msg.Type != message.DeleteMessage && (len(c.msg.Fields) == 0) == *c.cond.MissingFields)
+	return c.cond.MissingFields == nil || c.msg.MissingFields() == *c.cond.MissingFields
 }
 
 func (c checkable) typeMatches() bool {
