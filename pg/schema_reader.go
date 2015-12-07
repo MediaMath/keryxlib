@@ -292,7 +292,7 @@ func (sr *SchemaReader) GetFieldValues(databaseID uint32, relationID uint32, blo
 		valuesI = append(valuesI, interface{}(s))
 	}
 
-	query := fmt.Sprintf("select %v from \"%v\" where ctid = '(%d,%d)'::tid", strings.Join(names, ","), schema.Table, block, offset)
+	query := fmt.Sprintf("select %v from \"%v\".\"%v\" where ctid = '(%d,%d)'::tid", strings.Join(names, ","), schema.Namespace, schema.Table, block, offset)
 	rs, err := db.Query(query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute values query: %q '%v'::(%v,%v)", err, schema.Table, block, offset)
