@@ -134,6 +134,7 @@ type Message struct {
 	PopulateTime    time.Time `json:"populate_time"`
 	ParseTime       time.Time `json:"parse_time"`
 	PopulateWait    int       `json:"populate_wait,omitempty"`
+	PopulateLag     uint64    `json:"lag,omitempty"`
 }
 
 func (msg *Message) MissingFields() bool {
