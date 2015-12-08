@@ -60,19 +60,23 @@ func (b *PopulatedMessageStream) Start(serverVersion string, entryChan <-chan []
 	return txns, nil
 }
 
-func (b *PopulatedMessageStream) waitForLogToCatchUp(rvMsg *message.Message) {
+func (b *PopulatedMessageStream) waitForLogToCatchUp(rvMsg *message.Message) (curLoc uint64, lrl uint64, waits int) {
 
-	curLoc := uint64(rvMsg.LogID)<<32 + uint64(rvMsg.RecordOffset)
+	curLoc = uint64(rvMsg.LogID)<<32 + uint64(rvMsg.RecordOffset)
 
-	lrl := b.SchemaReader.LatestReplayLocation()
+	lrl = b.SchemaReader.LatestReplayLocation()
 	for curLoc > lrl {
 		<-time.After(time.Second)
 		lrl = b.SchemaReader.LatestReplayLocation()
+		waits++
 	}
+
+	return
 }
 
 func (b *PopulatedMessageStream) populate(rvMsg *message.Message) {
-	b.waitForLogToCatchUp(rvMsg)
+	curLoc, lrl, waits := b.waitForLogToCatchUp(rvMsg)
+	rvMsg.PopulateWait = waits
 
 	if rvMsg.Type == message.InsertMessage || rvMsg.Type == message.UpdateMessage || rvMsg.Type == message.DeleteMessage {
 		rvMsg.DatabaseName = b.SchemaReader.GetDatabaseName(rvMsg.DatabaseID)
@@ -83,7 +87,7 @@ func (b *PopulatedMessageStream) populate(rvMsg *message.Message) {
 
 		vs, err := b.SchemaReader.GetFieldValues(rvMsg.DatabaseID, rvMsg.RelationID, rvMsg.Block, rvMsg.Offset)
 		if err != nil {
-			rvMsg.PopulationError = err.Error()
+			rvMsg.PopulationError = fmt.Sprintf("%v - (%v, %v, %v)", err.Error(), curLoc, lrl, waits)
 		} else if vs == nil {
 			rvMsg.PopulationError = fmt.Sprintf("Message skipped for no fields.")
 		} else {

@@ -133,6 +133,7 @@ type Message struct {
 	PopulationError string    `json:"population_error,omitempty"`
 	PopulateTime    time.Time `json:"populate_time"`
 	ParseTime       time.Time `json:"parse_time"`
+	PopulateWait    int       `json:"populate_wait,omitempty"`
 }
 
 func (msg *Message) MissingFields() bool {

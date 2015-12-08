@@ -191,6 +191,7 @@ type HasMessage struct {
 	PrevTupleID   *string                `json:"prev_ctid"`
 	FieldsMatch   map[string]interface{} `json:"fields_match"`
 	MissingFields *bool                  `json:"missing_fields"`
+	Waits         *bool                  `json:"waits"`
 }
 
 func (c *HasMessage) Check(txn *message.Transaction) bool {
@@ -204,7 +205,7 @@ func (c *HasMessage) Check(txn *message.Transaction) bool {
 }
 
 func (c *HasMessage) validate() error {
-	if c.Type == nil && c.DatabaseName == nil && c.Namespace == nil && c.Relation == nil && c.TupleID == nil && c.PrevTupleID == nil && len(c.FieldsMatch) == 0 && c.MissingFields == nil {
+	if c.Waits == nil && c.Type == nil && c.DatabaseName == nil && c.Namespace == nil && c.Relation == nil && c.TupleID == nil && c.PrevTupleID == nil && len(c.FieldsMatch) == 0 && c.MissingFields == nil {
 		return fmt.Errorf("No message conditions specified.")
 	}
 
@@ -220,12 +221,17 @@ func (c *HasMessage) checkMessage(m message.Message) bool {
 		chk.tupleIDMatches() &&
 		chk.prevTupleIDMatches() &&
 		chk.missingFields() &&
+		chk.waits() &&
 		chk.fieldsMatch()
 }
 
 type checkable struct {
 	cond *HasMessage
 	msg  message.Message
+}
+
+func (c checkable) waits() bool {
+	return c.cond.Waits == nil || c.msg.PopulateWait > 0 == *c.cond.Waits
 }
 
 func (c checkable) missingFields() bool {
