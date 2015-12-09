@@ -33,8 +33,9 @@ func (b *PopulatedMessageStream) Start(serverVersion string, entryChan <-chan []
 			for _, entry := range entries {
 				if interestingEntryType(entry) && b.SchemaReader.HaveConnectionToDb(entry.DatabaseID) && !b.filterRelation(entry) {
 					msg := createMessage(entry)
-					b.populate(msg)
 					msg.PopulateTime = time.Now().UTC()
+					b.populate(msg)
+					msg.PopulateDuration = time.Now().UTC().Sub(msg.PopulateTime)
 					messages = append(messages, *msg)
 				}
 			}
