@@ -77,6 +77,7 @@ func (b *PopulatedMessageStream) waitForLogToCatchUp(rvMsg *message.Message) (cu
 func (b *PopulatedMessageStream) populate(rvMsg *message.Message) {
 	curLoc, lrl, waits := b.waitForLogToCatchUp(rvMsg)
 	rvMsg.PopulateWait = waits
+	rvMsg.PopulateLag = lrl - curLoc
 
 	if rvMsg.Type == message.InsertMessage || rvMsg.Type == message.UpdateMessage || rvMsg.Type == message.DeleteMessage {
 		rvMsg.DatabaseName = b.SchemaReader.GetDatabaseName(rvMsg.DatabaseID)
