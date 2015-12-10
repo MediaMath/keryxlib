@@ -112,29 +112,30 @@ type Transaction struct {
 
 //Message is an individual populated commited postgres statement.
 type Message struct {
-	TimelineID      uint32    `json:"-"`
-	LogID           uint32    `json:"-"`
-	RecordOffset    uint32    `json:"-"`
-	TablespaceID    uint32    `json:"nsid,omitempty"`
-	DatabaseID      uint32    `json:"dbid,omitempty"`
-	RelationID      uint32    `json:"relid,omitempty"`
-	Type            Type      `json:"type"`
-	Key             Key       `json:"key"`
-	Prev            Key       `json:"prev"`
-	TransactionID   uint32    `json:"xid"`
-	DatabaseName    string    `json:"db"`
-	Namespace       string    `json:"ns"`
-	Relation        string    `json:"rel"`
-	Block           uint32    `json:"-"`
-	Offset          uint16    `json:"-"`
-	TupleID         string    `json:"ctid"`
-	PrevTupleID     string    `json:"prev_ctid,omitempty"`
-	Fields          []Field   `json:"fields"`
-	PopulationError string    `json:"population_error,omitempty"`
-	PopulateTime    time.Time `json:"populate_time"`
-	ParseTime       time.Time `json:"parse_time"`
-	PopulateWait    int       `json:"populate_wait,omitempty"`
-	PopulateLag     uint64    `json:"lag,omitempty"`
+	TimelineID       uint32        `json:"-"`
+	LogID            uint32        `json:"-"`
+	RecordOffset     uint32        `json:"-"`
+	TablespaceID     uint32        `json:"nsid,omitempty"`
+	DatabaseID       uint32        `json:"dbid,omitempty"`
+	RelationID       uint32        `json:"relid,omitempty"`
+	Type             Type          `json:"type"`
+	Key              Key           `json:"key"`
+	Prev             Key           `json:"prev"`
+	TransactionID    uint32        `json:"xid"`
+	DatabaseName     string        `json:"db"`
+	Namespace        string        `json:"ns"`
+	Relation         string        `json:"rel"`
+	Block            uint32        `json:"-"`
+	Offset           uint16        `json:"-"`
+	TupleID          string        `json:"ctid"`
+	PrevTupleID      string        `json:"prev_ctid,omitempty"`
+	Fields           []Field       `json:"fields"`
+	PopulationError  string        `json:"population_error,omitempty"`
+	PopulateTime     time.Time     `json:"populate_time"`
+	ParseTime        time.Time     `json:"parse_time"`
+	PopulateWait     int           `json:"populate_wait,omitempty"`
+	PopulateLag      uint64        `json:"lag,omitempty"`
+	PopulateDuration time.Duration `json:"populate_duration,omitempty"`
 }
 
 func (msg *Message) MissingFields() bool {
