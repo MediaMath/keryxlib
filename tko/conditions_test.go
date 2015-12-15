@@ -53,6 +53,13 @@ func TestHasMessage(t *testing.T) {
 	doesntMatch(cond, &message.Transaction{Messages: []message.Message{message.Message{DatabaseName: "boo"}, message.Message{DatabaseName: "goo"}}}, t, "HasMessage doesnt match if none")
 }
 
+func TestHasMessageNamespace(t *testing.T) {
+	cond := condition(t, `{"has_message": {"ns": "foo"}}`)
+
+	matches(cond, &message.Transaction{Messages: []message.Message{message.Message{Namespace: "foo"}, message.Message{Namespace: "goo"}}}, t, "HasMessage matches any")
+	doesntMatch(cond, &message.Transaction{Messages: []message.Message{message.Message{Namespace: "boo"}, message.Message{Namespace: "goo"}}}, t, "HasMessage doesnt match if none")
+}
+
 func TestMissingFields(t *testing.T) {
 	cond := condition(t, `{"has_message": {"missing_fields": true}}`)
 

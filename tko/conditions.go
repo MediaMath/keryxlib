@@ -185,7 +185,7 @@ func (c *TransactionIDMatches) validate() error {
 type HasMessage struct {
 	Type          *message.Type          `json:"type"`
 	DatabaseName  *string                `json:"db"`
-	Namespace     *string                `json:"ns`
+	Namespace     *string                `json:"ns"`
 	Relation      *string                `json:"rel"`
 	TupleID       *string                `json:"ctid"`
 	PrevTupleID   *string                `json:"prev_ctid"`
