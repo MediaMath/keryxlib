@@ -138,6 +138,7 @@ type Message struct {
 	PopulateDuration time.Duration `json:"populate_duration,omitempty"`
 }
 
+//MissingFields returns true for any insert or update with no fields
 func (msg *Message) MissingFields() bool {
 	return msg.Type != DeleteMessage && len(msg.Fields) == 0
 }
