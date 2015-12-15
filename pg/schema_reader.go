@@ -162,6 +162,7 @@ func (sr *SchemaReader) ConvertRelNamesToIds(names []string) map[uint32]string {
 	return ids
 }
 
+//HaveConnectionToDb returns true if the db id in question has a connection defined.
 func (sr *SchemaReader) HaveConnectionToDb(databaseID uint32) bool {
 	_, ok := sr.conns[databaseID]
 	return ok

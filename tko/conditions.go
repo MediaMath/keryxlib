@@ -17,6 +17,7 @@ type ConditionDefinition struct {
 	AllOf         *[]ConditionDefinition `json:"all_of"`
 }
 
+//ReadConditionFromJSON parses a json string into a condition
 func ReadConditionFromJSON(jsonStr string) (Condition, error) {
 	var parsed ConditionDefinition
 	err := json.Unmarshal([]byte(jsonStr), &parsed)
@@ -72,6 +73,7 @@ func definitionsToConditions(definitions []ConditionDefinition) ([]Condition, er
 //Always will always return true
 type Always struct{}
 
+//Check will always return true for an always condition.
 func (c *Always) Check(txn *message.Transaction) bool {
 	return true
 }
@@ -85,6 +87,7 @@ type Not struct {
 	condition Condition
 }
 
+//Check will return the opposite of the underlying condition for the not condition.
 func (c *Not) Check(txn *message.Transaction) bool {
 	orig := c.condition.Check(txn)
 	return !orig
@@ -111,6 +114,7 @@ func AnyOfThese(definitions []ConditionDefinition) (anyOf AnyOf, err error) {
 	return
 }
 
+//Check will return true if any of the underlying conditions return true.
 func (c AnyOf) Check(txn *message.Transaction) bool {
 	if len(c) == 0 {
 		return false
@@ -146,6 +150,7 @@ func AllOfThese(definitions []ConditionDefinition) (allOf AllOf, err error) {
 	return
 }
 
+//Check will return true if all of the underlying conditions return true.
 func (c AllOf) Check(txn *message.Transaction) bool {
 	for _, condition := range c {
 		if !condition.Check(txn) {
@@ -169,6 +174,7 @@ type TransactionIDMatches struct {
 	TransactionID uint32 `json:"xid"`
 }
 
+//Check will return true if the transaction id matches for TransactionIDMatches conditions.
 func (c *TransactionIDMatches) Check(txn *message.Transaction) bool {
 	return c.TransactionID == txn.TransactionID
 }
@@ -194,6 +200,7 @@ type HasMessage struct {
 	Waits         *bool                  `json:"waits"`
 }
 
+//Check will return true if all of the defined conditions for HasMessage match.
 func (c *HasMessage) Check(txn *message.Transaction) bool {
 	for _, msg := range txn.Messages {
 		if c.checkMessage(msg) {
