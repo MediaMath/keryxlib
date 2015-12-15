@@ -274,11 +274,8 @@ func (sr *SchemaReader) GetFieldValues(databaseID uint32, relationID uint32, blo
 		return nil, fmt.Errorf("failed to retrieve schema: %v", err)
 	} else if schema == nil {
 		return nil, nil
-	}
-
-	out := make(map[SchemaField]string)
-	if len(schema.Fields) == 0 {
-		return out, nil
+	} else if len(schema.Fields) == 0 {
+		return nil, fmt.Errorf("no access to schema for %v, %v", databaseID, relationID)
 	}
 
 	cast := fmt.Sprintf("::char varying(%v)", sr.fieldSizeLimit)
@@ -315,6 +312,7 @@ func (sr *SchemaReader) GetFieldValues(databaseID uint32, relationID uint32, blo
 		return nil, fmt.Errorf("failed to parse values row: %v", err)
 	}
 
+	out := make(map[SchemaField]string)
 	for i, field := range schema.Fields {
 		out[*field] = *values[i]
 	}
