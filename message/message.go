@@ -2,6 +2,7 @@ package message
 
 import (
 	"fmt"
+	"sort"
 	"time"
 )
 
@@ -106,8 +107,29 @@ type Transaction struct {
 	CommitKey       Key       `json:"commit"`
 	CommitTime      time.Time `json:"commit_time"`
 	TransactionTime time.Time `json:"transaction_time"`
-	Messages        []Message `json:"messages"`
+	Messages        []Message `json:"messages,omitempty"`
+	Tables          []string  `json:"tables,omitempty"`
 	ServerVersion   string    `json:"server_version,omitempty"`
+}
+
+//SwitchToTableBasedMessage will get all the unique table names out of the messages
+//add them to the tables field and empty the message field.  This is useful in contexts
+//where the full transaction size would be too large.
+func (t *Transaction) SwitchToTableBasedMessage() {
+	m := make(map[string]bool)
+	for _, msg := range t.Messages {
+		m[msg.RelFullName()] = true
+	}
+
+	var tables []string
+	for table := range m {
+		tables = append(tables, table)
+	}
+
+	sort.Strings(tables)
+
+	t.Tables = tables
+	t.Messages = []Message{}
 }
 
 //Message is an individual populated commited postgres statement.

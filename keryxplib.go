@@ -9,13 +9,14 @@ import (
 
 //FullStream is a facade around the full process of taking WAL entries and publishing them as txn messages.
 type FullStream struct {
-	walStream *streams.WalStream
-	sr        *pg.SchemaReader
+	walStream       *streams.WalStream
+	sr              *pg.SchemaReader
+	MaxMessageCount int
 }
 
 //NewKeryxStream takes a schema reader and returns a FullStream
-func NewKeryxStream(sr *pg.SchemaReader) *FullStream {
-	return &FullStream{nil, sr}
+func NewKeryxStream(sr *pg.SchemaReader, maxMessageCount int) *FullStream {
+	return &FullStream{nil, sr, maxMessageCount}
 }
 
 //Stop will end the reading on the WAL log and subsequent streams will therefore end.
@@ -45,7 +46,7 @@ func (fs *FullStream) StartKeryxStream(serverVersion string, filters filters.Mes
 		return nil, err
 	}
 
-	populated := &streams.PopulatedMessageStream{Filter: filters, SchemaReader: fs.sr}
+	populated := &streams.PopulatedMessageStream{Filter: filters, SchemaReader: fs.sr, MaxMessageCount: fs.MaxMessageCount}
 	keryx, err := populated.Start(serverVersion, buffered)
 	if err != nil {
 		fs.Stop()
