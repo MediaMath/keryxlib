@@ -128,6 +128,11 @@ func (msg Table) RelFullName() string {
 //add them to the tables field and empty the message field.  This is useful in contexts
 //where the full transaction size would be too large.
 func (t *Transaction) SwitchToTableBasedMessage() {
+	//already table based
+	if len(t.Tables) > 0 {
+		return
+	}
+
 	m := make(map[string]Table)
 	for _, msg := range t.Messages {
 		m[msg.RelFullName()] = Table{DatabaseName: msg.DatabaseName, Namespace: msg.Namespace, Relation: msg.Relation}
