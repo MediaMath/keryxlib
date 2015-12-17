@@ -14,7 +14,7 @@ import (
 type PopulatedMessageStream struct {
 	Filter          filters.MessageFilter
 	SchemaReader    *pg.SchemaReader
-	MaxMessageCount int
+	MaxMessageCount uint
 }
 
 func interestingEntryType(entry *wal.Entry) bool {
@@ -31,7 +31,7 @@ func (b *PopulatedMessageStream) Start(serverVersion string, entryChan <-chan []
 	go func() {
 		for entries := range entryChan {
 			var messages []message.Message
-			shouldPopulate := b.MaxMessageCount < 1 || len(entries) <= b.MaxMessageCount
+			shouldPopulate := b.MaxMessageCount < 1 || uint(len(entries)) <= b.MaxMessageCount
 			for _, entry := range entries {
 				if interestingEntryType(entry) && b.SchemaReader.HaveConnectionToDb(entry.DatabaseID) && !b.filterRelation(entry) {
 					msg := createMessage(entry)

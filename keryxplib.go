@@ -42,7 +42,7 @@ type Config struct {
 	ExcludeRelations map[string][]string `json:"exclude,omitempty"`
 	IncludeRelations map[string][]string `json:"include,omitempty"`
 	BufferDirectory  string              `json:"buffer_directory"`
-	MaxMessagePerTxn int                 `json:"max_message_per_txn"`
+	MaxMessagePerTxn uint                `json:"max_message_per_txn"`
 }
 
 //BufferDirectoryDefaultBase is the root directory to attempt to create buffers files in if
@@ -81,11 +81,11 @@ func ConfigFromFile(path string) (*Config, error) {
 type FullStream struct {
 	walStream       *streams.WalStream
 	sr              *pg.SchemaReader
-	MaxMessageCount int
+	MaxMessageCount uint
 }
 
 //NewKeryxStream takes a schema reader and returns a FullStream
-func NewKeryxStream(sr *pg.SchemaReader, maxMessageCount int) *FullStream {
+func NewKeryxStream(sr *pg.SchemaReader, maxMessageCount uint) *FullStream {
 	return &FullStream{nil, sr, maxMessageCount}
 }
 
