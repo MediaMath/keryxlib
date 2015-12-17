@@ -119,6 +119,11 @@ type Table struct {
 	Relation     string `json:"rel"`
 }
 
+//RelFullName is a full table address of the form db.ns.table
+func (msg Table) RelFullName() string {
+	return fmt.Sprintf("%s.%s.%s", msg.DatabaseName, msg.Namespace, msg.Relation)
+}
+
 //SwitchToTableBasedMessage will get all the unique table names out of the messages
 //add them to the tables field and empty the message field.  This is useful in contexts
 //where the full transaction size would be too large.
