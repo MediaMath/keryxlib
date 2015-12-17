@@ -2,7 +2,6 @@ package message
 
 import (
 	"fmt"
-	"sort"
 	"time"
 )
 
@@ -108,25 +107,30 @@ type Transaction struct {
 	CommitTime      time.Time `json:"commit_time"`
 	TransactionTime time.Time `json:"transaction_time"`
 	Messages        []Message `json:"messages,omitempty"`
-	Tables          []string  `json:"tables,omitempty"`
+	Tables          []Table   `json:"tables,omitempty"`
 	ServerVersion   string    `json:"server_version,omitempty"`
+}
+
+//Table is the fully addressable form of a table
+type Table struct {
+	DatabaseName string `json:"db"`
+	Namespace    string `json:"ns"`
+	Relation     string `json:"rel"`
 }
 
 //SwitchToTableBasedMessage will get all the unique table names out of the messages
 //add them to the tables field and empty the message field.  This is useful in contexts
 //where the full transaction size would be too large.
 func (t *Transaction) SwitchToTableBasedMessage() {
-	m := make(map[string]bool)
+	m := make(map[string]Table)
 	for _, msg := range t.Messages {
-		m[msg.RelFullName()] = true
+		m[msg.RelFullName()] = Table{DatabaseName: msg.DatabaseName, Namespace: msg.Namespace, Relation: msg.Relation}
 	}
 
-	var tables []string
-	for table := range m {
+	var tables []Table
+	for _, table := range m {
 		tables = append(tables, table)
 	}
-
-	sort.Strings(tables)
 
 	t.Tables = tables
 	t.Messages = []Message{}

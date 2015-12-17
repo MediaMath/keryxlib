@@ -51,6 +51,9 @@ func TestHasMessage(t *testing.T) {
 
 	matches(cond, &message.Transaction{Messages: []message.Message{message.Message{DatabaseName: "foo"}, message.Message{DatabaseName: "goo"}}}, t, "HasMessage matches any")
 	doesntMatch(cond, &message.Transaction{Messages: []message.Message{message.Message{DatabaseName: "boo"}, message.Message{DatabaseName: "goo"}}}, t, "HasMessage doesnt match if none")
+
+	matches(cond, &message.Transaction{Tables: []message.Table{message.Table{DatabaseName: "goo"}, message.Table{DatabaseName: "foo"}}}, t, "Table style matches")
+	doesntMatch(cond, &message.Transaction{Tables: []message.Table{message.Table{DatabaseName: "goo"}, message.Table{DatabaseName: "boo"}}}, t, "Table style doesnt match")
 }
 
 func TestHasMessageNamespace(t *testing.T) {
@@ -58,6 +61,9 @@ func TestHasMessageNamespace(t *testing.T) {
 
 	matches(cond, &message.Transaction{Messages: []message.Message{message.Message{Namespace: "foo"}, message.Message{Namespace: "goo"}}}, t, "HasMessage matches any")
 	doesntMatch(cond, &message.Transaction{Messages: []message.Message{message.Message{Namespace: "boo"}, message.Message{Namespace: "goo"}}}, t, "HasMessage doesnt match if none")
+
+	matches(cond, &message.Transaction{Tables: []message.Table{message.Table{Namespace: "goo"}, message.Table{Namespace: "foo"}}}, t, "Table style matches")
+	doesntMatch(cond, &message.Transaction{Tables: []message.Table{message.Table{Namespace: "goo"}, message.Table{Namespace: "boo"}}}, t, "Table style doesnt match")
 }
 
 func TestMissingFields(t *testing.T) {
@@ -66,6 +72,8 @@ func TestMissingFields(t *testing.T) {
 	matches(cond, &message.Transaction{Messages: []message.Message{message.Message{DatabaseName: "foo"}}}, t, "MissingFields")
 	fields := []message.Field{message.Field{Name: "boo"}}
 	doesntMatch(cond, &message.Transaction{Messages: []message.Message{message.Message{Fields: fields}}}, t, "MissingFields")
+
+	doesntMatch(cond, &message.Transaction{Tables: []message.Table{message.Table{Namespace: "goo"}, message.Table{Namespace: "boo"}}}, t, "Table style never matches missing fields")
 }
 
 func matches(condition Condition, txn *message.Transaction, t *testing.T, msg string) {

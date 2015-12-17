@@ -208,6 +208,12 @@ func (c *HasMessage) Check(txn *message.Transaction) bool {
 		}
 	}
 
+	for _, tables := range txn.Tables {
+		if c.checkTable(tables) {
+			return true
+		}
+	}
+
 	return false
 }
 
@@ -217,6 +223,36 @@ func (c *HasMessage) validate() error {
 	}
 
 	return nil
+}
+
+func (c *HasMessage) checkTable(t message.Table) bool {
+	chk := tableCheck{c, t}
+	return chk.cond.Type == nil &&
+		chk.cond.TupleID == nil &&
+		chk.cond.PrevTupleID == nil &&
+		chk.cond.MissingFields == nil &&
+		chk.cond.Waits == nil &&
+		chk.cond.FieldsMatch == nil &&
+		chk.databaseNameMatches() &&
+		chk.namespaceMatches() &&
+		chk.relationMatches()
+}
+
+type tableCheck struct {
+	cond *HasMessage
+	t    message.Table
+}
+
+func (c tableCheck) databaseNameMatches() bool {
+	return c.cond.DatabaseName == nil || c.t.DatabaseName == *c.cond.DatabaseName
+}
+
+func (c tableCheck) namespaceMatches() bool {
+	return c.cond.Namespace == nil || c.t.Namespace == *c.cond.Namespace
+}
+
+func (c tableCheck) relationMatches() bool {
+	return c.cond.Relation == nil || c.t.Relation == *c.cond.Relation
 }
 
 func (c *HasMessage) checkMessage(m message.Message) bool {
