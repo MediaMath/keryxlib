@@ -30,7 +30,7 @@ func TransactionChannel(serverVersion string, kc *Config) (<-chan *message.Trans
 		f = filters.Inclusive(schemaReader, kc.IncludeRelations)
 	}
 
-	stream := NewKeryxStream(schemaReader)
+	stream := NewKeryxStream(schemaReader, kc.MaxMessagePerTxn)
 	return stream.StartKeryxStream(serverVersion, f, kc.DataDir, bufferWorkingDirectory)
 }
 
@@ -42,6 +42,7 @@ type Config struct {
 	ExcludeRelations map[string][]string `json:"exclude,omitempty"`
 	IncludeRelations map[string][]string `json:"include,omitempty"`
 	BufferDirectory  string              `json:"buffer_directory"`
+	MaxMessagePerTxn int                 `json:"max_message_per_txn"`
 }
 
 //BufferDirectoryDefaultBase is the root directory to attempt to create buffers files in if
