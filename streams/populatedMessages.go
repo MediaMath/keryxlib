@@ -12,8 +12,9 @@ import (
 
 //PopulatedMessageStream takes collections of commited WAL entries, organized by transaction and populates them from the db with their current values.  It then publishes them as a Transaction message.
 type PopulatedMessageStream struct {
-	Filter       filters.MessageFilter
-	SchemaReader *pg.SchemaReader
+	Filter          filters.MessageFilter
+	SchemaReader    *pg.SchemaReader
+	MaxMessageCount int
 }
 
 func interestingEntryType(entry *wal.Entry) bool {
@@ -30,12 +31,17 @@ func (b *PopulatedMessageStream) Start(serverVersion string, entryChan <-chan []
 	go func() {
 		for entries := range entryChan {
 			var messages []message.Message
+			shouldPopulate := b.MaxMessageCount < 1 || len(entries) <= b.MaxMessageCount
 			for _, entry := range entries {
 				if interestingEntryType(entry) && b.SchemaReader.HaveConnectionToDb(entry.DatabaseID) && !b.filterRelation(entry) {
 					msg := createMessage(entry)
-					msg.PopulateTime = time.Now().UTC()
-					b.populate(msg)
-					msg.PopulateDuration = time.Now().UTC().Sub(msg.PopulateTime)
+
+					if shouldPopulate {
+						msg.PopulateTime = time.Now().UTC()
+						b.populate(msg)
+						msg.PopulateDuration = time.Now().UTC().Sub(msg.PopulateTime)
+					}
+
 					messages = append(messages, *msg)
 				}
 			}
@@ -50,6 +56,10 @@ func (b *PopulatedMessageStream) Start(serverVersion string, entryChan <-chan []
 				txn.CommitKey = createKey(commit)
 				txn.FirstKey = messages[0].Key
 				txn.CommitTime = time.Unix(0, commit.ParseTime).UTC()
+
+				if !shouldPopulate {
+					txn.SwitchToTableBasedMessage()
+				}
 
 				txn.TransactionTime = time.Now().UTC()
 				txns <- txn

@@ -106,8 +106,41 @@ type Transaction struct {
 	CommitKey       Key       `json:"commit"`
 	CommitTime      time.Time `json:"commit_time"`
 	TransactionTime time.Time `json:"transaction_time"`
-	Messages        []Message `json:"messages"`
+	Messages        []Message `json:"messages,omitempty"`
+	Tables          []Table   `json:"tables,omitempty"`
+	MessageCount    int       `json:"message_count,omitempty"`
 	ServerVersion   string    `json:"server_version,omitempty"`
+}
+
+//Table is the fully addressable form of a table
+type Table struct {
+	DatabaseName string `json:"db"`
+	Namespace    string `json:"ns"`
+	Relation     string `json:"rel"`
+}
+
+//RelFullName is a full table address of the form db.ns.table
+func (msg Table) RelFullName() string {
+	return fmt.Sprintf("%s.%s.%s", msg.DatabaseName, msg.Namespace, msg.Relation)
+}
+
+//SwitchToTableBasedMessage will get all the unique table names out of the messages
+//add them to the tables field and empty the message field.  This is useful in contexts
+//where the full transaction size would be too large.
+func (t *Transaction) SwitchToTableBasedMessage() {
+	m := make(map[string]Table)
+	for _, msg := range t.Messages {
+		m[msg.RelFullName()] = Table{DatabaseName: msg.DatabaseName, Namespace: msg.Namespace, Relation: msg.Relation}
+	}
+
+	var tables []Table
+	for _, table := range m {
+		tables = append(tables, table)
+	}
+
+	t.Tables = tables
+	t.MessageCount = len(t.Messages)
+	t.Messages = []Message{}
 }
 
 //Message is an individual populated commited postgres statement.

@@ -30,7 +30,7 @@ func TransactionChannel(serverVersion string, kc *Config) (<-chan *message.Trans
 		f = filters.Inclusive(schemaReader, kc.IncludeRelations)
 	}
 
-	stream := NewKeryxStream(schemaReader)
+	stream := NewKeryxStream(schemaReader, kc.MaxMessagePerTxn)
 	return stream.StartKeryxStream(serverVersion, f, kc.DataDir, bufferWorkingDirectory)
 }
 
@@ -42,6 +42,7 @@ type Config struct {
 	ExcludeRelations map[string][]string `json:"exclude,omitempty"`
 	IncludeRelations map[string][]string `json:"include,omitempty"`
 	BufferDirectory  string              `json:"buffer_directory"`
+	MaxMessagePerTxn int                 `json:"max_message_per_txn"`
 }
 
 //BufferDirectoryDefaultBase is the root directory to attempt to create buffers files in if
@@ -78,13 +79,14 @@ func ConfigFromFile(path string) (*Config, error) {
 
 //FullStream is a facade around the full process of taking WAL entries and publishing them as txn messages.
 type FullStream struct {
-	walStream *streams.WalStream
-	sr        *pg.SchemaReader
+	walStream       *streams.WalStream
+	sr              *pg.SchemaReader
+	MaxMessageCount int
 }
 
 //NewKeryxStream takes a schema reader and returns a FullStream
-func NewKeryxStream(sr *pg.SchemaReader) *FullStream {
-	return &FullStream{nil, sr}
+func NewKeryxStream(sr *pg.SchemaReader, maxMessageCount int) *FullStream {
+	return &FullStream{nil, sr, maxMessageCount}
 }
 
 //Stop will end the reading on the WAL log and subsequent streams will therefore end.
@@ -114,7 +116,7 @@ func (fs *FullStream) StartKeryxStream(serverVersion string, filters filters.Mes
 		return nil, err
 	}
 
-	populated := &streams.PopulatedMessageStream{Filter: filters, SchemaReader: fs.sr}
+	populated := &streams.PopulatedMessageStream{Filter: filters, SchemaReader: fs.sr, MaxMessageCount: fs.MaxMessageCount}
 	keryx, err := populated.Start(serverVersion, buffered)
 	if err != nil {
 		fs.Stop()
