@@ -108,6 +108,7 @@ type Transaction struct {
 	TransactionTime time.Time `json:"transaction_time"`
 	Messages        []Message `json:"messages,omitempty"`
 	Tables          []Table   `json:"tables,omitempty"`
+	MessageCount    int       `json:"message_count,omitempty"`
 	ServerVersion   string    `json:"server_version,omitempty"`
 }
 
@@ -133,6 +134,7 @@ func (t *Transaction) SwitchToTableBasedMessage() {
 	}
 
 	t.Tables = tables
+	t.MessageCount = len(t.Messages)
 	t.Messages = []Message{}
 }
 
