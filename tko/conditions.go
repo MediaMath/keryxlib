@@ -10,7 +10,7 @@ import (
 //ConditionDefinition wraps around the condition and allows it to be parsed generically.  Only 1 of the fields will be returned if multiple exist
 type ConditionDefinition struct {
 	Always        *Always                `json:"always"`
-	IsTransaction *TransactionIDMatches  `json:"transaction_is"`
+	IsTransaction *TransactionIs         `json:"transaction_is"`
 	HasMessage    *HasMessage            `json:"has_message"`
 	Not           *ConditionDefinition   `json:"not"`
 	AnyOf         *[]ConditionDefinition `json:"any_of"`
@@ -169,19 +169,25 @@ func (c AllOf) validate() error {
 	return nil
 }
 
-//TransactionIDMatches will match a specific TransactionID
-type TransactionIDMatches struct {
-	TransactionID uint32 `json:"xid"`
+//TransactionIs will match a specific TransactionID
+type TransactionIs struct {
+	TransactionID  *uint32 `json:"xid"`
+	BigTransaction *bool   `json:"big"`
 }
 
 //Check will return true if the transaction id matches for TransactionIDMatches conditions.
-func (c *TransactionIDMatches) Check(txn *message.Transaction) bool {
-	return c.TransactionID == txn.TransactionID
+func (c *TransactionIs) Check(txn *message.Transaction) bool {
+	return (c.TransactionID == nil || *c.TransactionID == txn.TransactionID) &&
+		(c.BigTransaction == nil || *c.BigTransaction == (len(txn.Tables) > 0))
 }
 
-func (c *TransactionIDMatches) validate() error {
-	if c.TransactionID < 1 {
+func (c *TransactionIs) validate() error {
+	if c.TransactionID != nil && *c.TransactionID < 1 {
 		return fmt.Errorf("TransactionID is missing or not positive: %v", c.TransactionID)
+	}
+
+	if c.TransactionID == nil && c.BigTransaction == nil {
+		return fmt.Errorf("No condition")
 	}
 
 	return nil
