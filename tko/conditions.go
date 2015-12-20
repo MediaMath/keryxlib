@@ -137,8 +137,8 @@ func (t *TransactionsThat) Check(txn *message.Transaction) bool {
 	return len(t.conditions) == 0
 }
 
-func (c *TransactionsThat) validate() error {
-	if len(c.conditions) < 1 {
+func (t *TransactionsThat) validate() error {
+	if len(t.conditions) < 1 {
 		return fmt.Errorf("Must have conditions for TransactionsThat")
 	}
 
