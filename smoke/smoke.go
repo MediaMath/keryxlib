@@ -20,7 +20,7 @@ import (
 var (
 	configFlag = cli.StringFlag{
 		Name:   "config",
-		Usage:  "Path to the kerxyp config file",
+		Usage:  "Path to the kerxylib config file",
 		EnvVar: "SMOKE_CONFIG",
 	}
 
@@ -30,13 +30,18 @@ var (
 		Value:  60,
 		EnvVar: "SMOKE_TIMEOUT",
 	}
+
+	verboseFlag = cli.BoolFlag{
+		Name:  "verbose",
+		Usage: "will print all messages it sees",
+	}
 )
 
 func main() {
 	app := cli.NewApp()
 	app.Name = "smoke"
 	app.Usage = "run tko conditions directly on a database"
-	app.Flags = []cli.Flag{configFlag}
+	app.Flags = []cli.Flag{configFlag, timeoutFlag, verboseFlag}
 
 	app.Action = func(ctx *cli.Context) {
 		configFile := configFileRequired(ctx)
@@ -55,22 +60,17 @@ func main() {
 			log.Fatalf("Timeout must be > 0")
 		}
 
-		txn, err := runSmoke(config, condition, time.Duration(timeout)*time.Second)
+		txn, err := runSmoke(config, condition, time.Duration(timeout)*time.Second, ctx.Bool("verbose"))
 
 		if err != nil {
 			log.Fatal(err)
 		}
 
 		if txn != nil {
-			j, err := json.Marshal(txn)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			fmt.Println(string(j))
+			printTxn(txn)
+		} else {
+			log.Fatal("Nothing found in specified time.")
 		}
-
-		log.Fatal("Nothing found in specified time.")
 	}
 
 	app.Run(os.Args)
@@ -86,7 +86,15 @@ func configFileRequired(ctx *cli.Context) string {
 	return configFile
 }
 
-func runSmoke(config *keryxlib.Config, condition tko.Condition, timeout time.Duration) (*message.Transaction, error) {
+func printTxn(txn *message.Transaction) {
+	js, err := json.Marshal(txn)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("%s\n", js)
+}
+
+func runSmoke(config *keryxlib.Config, condition tko.Condition, timeout time.Duration, verbose bool) (*message.Transaction, error) {
 
 	keryxChan, err := keryxlib.TransactionChannel("smoke", config)
 	if err != nil {
@@ -101,8 +109,11 @@ func runSmoke(config *keryxlib.Config, condition tko.Condition, timeout time.Dur
 			return nil, nil
 		case txn, more := <-keryxChan:
 			if more {
+
 				if condition.Check(txn) {
 					return txn, nil
+				} else if verbose {
+					printTxn(txn)
 				}
 			} else {
 				return nil, nil

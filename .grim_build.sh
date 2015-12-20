@@ -11,6 +11,6 @@ cd "./$CLONE_PATH"
 
 go get ./...
 
-make test
+make test smoke-test
 
 
