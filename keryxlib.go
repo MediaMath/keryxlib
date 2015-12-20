@@ -1,4 +1,4 @@
-package keryxplib
+package keryxlib
 
 // Copyright 2015 MediaMath <http://www.mediamath.com>.  All rights reserved.
 // Use of this source code is governed by a BSD-style
