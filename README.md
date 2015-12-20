@@ -50,13 +50,14 @@ The postgres WAL log contains records for every database in the postgres instanc
 
 Transactions in some cases can become very big.  The cost of populating these very large transactions is very expensive.  In some cases this cost is not worth the effort.  If "max_message_per_txn" is set any transaction that has more messages than that value in it, will not populate the messages field and instead will have the tables that were impacted in the transaction listed as well as a count for the number of messages.
 
+
+### Keryxlib misses data when... 
+
+Keryxlib will miss data in certain known cases.
+
 #### Deletes
 
 By the time keryxlib sees deletes from the WAL log, the information about the fields that were deleted is already gone. Therefore delete messages will not have any field level information, including any IDs of the row in question.  The tuple id will be available.  This means that if your system needs to publish the ids of a specific delete then you will need to augment keryxlib with an external mapping between tuple id and entity id.
-
-### Known Failure Modes
-
-Keryxlib will miss data in certain known cases.
 
 #### Population lag causes missed message population
 
