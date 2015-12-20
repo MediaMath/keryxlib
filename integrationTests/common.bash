@@ -36,6 +36,8 @@ setup () {
 
 
 	run_test () {
+		INVERT=${INVERT:-""}
+		FILTER=${FILTER:-""}
 		SMOKE_CONFIG="$TEMP_PATH/smoke_config.json"
 		BDIR="$TEMP_PATH/xact_buffer"
 		mkdir -p "$BDIR"
@@ -46,18 +48,16 @@ setup () {
 		echo '{
 			"data_dir": "PGDATA",
 			"pg_conn_strings": [
-				"postgres://USER:@localhost:PGPORT/smoke_test?sslmode=disable"
+				"postgres://USER:@localhost:PGPORT/DB?sslmode=disable"
 			],
 			"buffer_max": 100000,
 			"bind_address": ":19999",
-			"relations_to_include": {
-				"smoke_test.public.test": ["id", "count"]
-			},
+			"exclude": { FILTER },
 			"buffer_directory": "BDIR"
-		}' | perl -p -e "my \$pgd = '$PGDATA'; my \$bdir = '$BDIR'; s/USER/$USER/; s/PGDATA/\$pgd/; s/PGPORT/$PGPORT/; s/BDIR/\$bdir/;" > "$SMOKE_CONFIG"
+		}' | perl -p -e "my \$pgd = '$PGDATA'; my \$bdir = '$BDIR'; s/DB/$DATABASE_NAME/; s/FILTER/$FILTER/; s/USER/$USER/; s/PGDATA/\$pgd/; s/PGPORT/$PGPORT/; s/BDIR/\$bdir/;" > "$SMOKE_CONFIG"
 
 		echo "$SQL" | psql "$DATABASE_NAME" > /dev/null &
-		echo "$CONDITION" | smoke --config "$SMOKE_CONFIG" --timeout 10 > /dev/null
+		echo "$CONDITION" | smoke $INVERT --config "$SMOKE_CONFIG" --timeout 10 > /dev/null
 	}
 
 	cleanup_smoke () {

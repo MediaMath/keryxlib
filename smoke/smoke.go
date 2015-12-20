@@ -35,13 +35,18 @@ var (
 		Name:  "verbose",
 		Usage: "will print all messages it sees",
 	}
+
+	invertFlag = cli.BoolFlag{
+		Name:  "invert",
+		Usage: "will fail if it FINDS the condition",
+	}
 )
 
 func main() {
 	app := cli.NewApp()
 	app.Name = "smoke"
 	app.Usage = "run tko conditions directly on a database"
-	app.Flags = []cli.Flag{configFlag, timeoutFlag, verboseFlag}
+	app.Flags = []cli.Flag{configFlag, timeoutFlag, verboseFlag, invertFlag}
 
 	app.Action = func(ctx *cli.Context) {
 		configFile := configFileRequired(ctx)
@@ -66,10 +71,14 @@ func main() {
 			log.Fatal(err)
 		}
 
-		if txn != nil {
-			printTxn(txn)
-		} else {
+		invert := ctx.Bool("invert")
+		if txn == nil && !invert {
 			log.Fatal("Nothing found in specified time.")
+		} else if txn != nil && invert {
+			printTxn(txn)
+			log.Fatal("Condition met.")
+		} else {
+			printTxn(txn)
 		}
 	}
 
