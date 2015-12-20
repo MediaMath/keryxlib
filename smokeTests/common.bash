@@ -36,6 +36,7 @@ setup () {
 
 
 	run_test () {
+		MAX_MSG=${MAX_MSG:-"0"}
 		INVERT=${INVERT:-""}
 		FILTER=${FILTER:-""}
 		SMOKE_CONFIG="$TEMP_PATH/smoke_config.json"
@@ -50,11 +51,12 @@ setup () {
 			"pg_conn_strings": [
 				"postgres://USER:@localhost:PGPORT/DB?sslmode=disable"
 			],
+			"max_message_per_txn":MAX_MSG, 
 			"buffer_max": 100000,
 			"bind_address": ":19999",
 			"exclude": { FILTER },
 			"buffer_directory": "BDIR"
-		}' | perl -p -e "my \$pgd = '$PGDATA'; my \$bdir = '$BDIR'; s/DB/$DATABASE_NAME/; s/FILTER/$FILTER/; s/USER/$USER/; s/PGDATA/\$pgd/; s/PGPORT/$PGPORT/; s/BDIR/\$bdir/;" > "$SMOKE_CONFIG"
+		}' | perl -p -e "my \$pgd = '$PGDATA'; my \$bdir = '$BDIR'; s/DB/$DATABASE_NAME/; s/FILTER/$FILTER/; s/USER/$USER/; s/PGDATA/\$pgd/; s/MAX_MSG/$MAX_MSG/;s/PGPORT/$PGPORT/; s/BDIR/\$bdir/;" > "$SMOKE_CONFIG"
 
 		echo "$SQL" | psql "$DATABASE_NAME" > /dev/null &
 		echo "$CONDITION" | smoke $INVERT --config "$SMOKE_CONFIG" --timeout 10 > /dev/null
@@ -74,6 +76,7 @@ setup () {
 	}
 
 	start () {
+		echo "RUNNING $0"
 		prepare_temp_dir
 		prepare_postgres
 	}

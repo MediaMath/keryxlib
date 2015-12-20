@@ -66,14 +66,14 @@ func (fs *FullStream) StartKeryxStream(serverVersion string, filters filters.Mes
 		return nil, err
 	}
 
-	txnBuffer := &streams.TxnBuffer{Filters: filters, WorkingDirectory: bufferWorkingDirectory}
+	txnBuffer := &streams.TxnBuffer{Filters: filters, WorkingDirectory: bufferWorkingDirectory, SchemaReader: fs.sr}
 	buffered, err := txnBuffer.Start(wal)
 	if err != nil {
 		fs.Stop()
 		return nil, err
 	}
 
-	populated := &streams.PopulatedMessageStream{Filter: filters, SchemaReader: fs.sr, MaxMessageCount: fs.MaxMessageCount}
+	populated := &streams.PopulatedMessageStream{Filters: filters, SchemaReader: fs.sr, MaxMessageCount: fs.MaxMessageCount}
 	keryx, err := populated.Start(serverVersion, buffered)
 	if err != nil {
 		fs.Stop()
