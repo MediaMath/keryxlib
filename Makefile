@@ -14,4 +14,4 @@ golint:
 
 smoke-test:
 	go install  github.com/MediaMath/keryxlib/smoke
-	/bin/bash ./integrationTests/run_all.sh
+	/bin/bash ./smokeTests/run_all.sh
