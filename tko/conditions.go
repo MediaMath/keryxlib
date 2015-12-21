@@ -13,12 +13,13 @@ import (
 
 //ConditionDefinition wraps around the condition and allows it to be parsed generically.  Only 1 of the fields will be returned if multiple exist
 type ConditionDefinition struct {
-	Always        *Always                `json:"always"`
-	IsTransaction *TransactionIs         `json:"transaction_is"`
-	HasMessage    *HasMessage            `json:"has_message"`
-	Not           *ConditionDefinition   `json:"not"`
-	AnyOf         *[]ConditionDefinition `json:"any_of"`
-	AllOf         *[]ConditionDefinition `json:"all_of"`
+	Always           *Always                `json:"always"`
+	IsTransaction    *TransactionIs         `json:"transaction_is"`
+	TransactionsThat *[]ConditionDefinition `json:"transactions_that"`
+	HasMessage       *HasMessage            `json:"has_message"`
+	Not              *ConditionDefinition   `json:"not"`
+	AnyOf            *[]ConditionDefinition `json:"any_of"`
+	AllOf            *[]ConditionDefinition `json:"all_of"`
 }
 
 //ReadConditionFromJSON parses a json string into a condition
@@ -46,6 +47,8 @@ func conditionFromDefinition(parsed ConditionDefinition) (cond Condition, err er
 		if err == nil {
 			cond = &Not{inner}
 		}
+	} else if parsed.TransactionsThat != nil {
+		cond, err = TransactionsOfThese(*parsed.TransactionsThat)
 	} else if parsed.AnyOf != nil {
 		cond, err = AnyOfThese(*parsed.AnyOf)
 	} else if parsed.AllOf != nil {
@@ -100,6 +103,43 @@ func (c *Not) Check(txn *message.Transaction) bool {
 func (c *Not) validate() error {
 	if c.condition == nil {
 		return fmt.Errorf("No condition to invert.")
+	}
+
+	return nil
+}
+
+//TransactionsThat will return false until a transaction is found for every conditions.  It is a stateful transaction filter.
+type TransactionsThat struct {
+	conditions []Condition
+}
+
+//TransactionsOfThese creates an TransactionsThat from other definitions
+func TransactionsOfThese(definitions []ConditionDefinition) (transactionsThat *TransactionsThat, err error) {
+	conditions, err := definitionsToConditions(definitions)
+	if err == nil {
+		transactionsThat = &TransactionsThat{conditions}
+	}
+
+	return
+}
+
+//Check will return true if any of the underlying conditions return true.
+func (t *TransactionsThat) Check(txn *message.Transaction) bool {
+
+	var keep []Condition
+	for _, condition := range t.conditions {
+		if !condition.Check(txn) {
+			keep = append(keep, condition)
+		}
+	}
+	t.conditions = keep
+
+	return len(t.conditions) == 0
+}
+
+func (t *TransactionsThat) validate() error {
+	if len(t.conditions) < 1 {
+		return fmt.Errorf("Must have conditions for TransactionsThat")
 	}
 
 	return nil

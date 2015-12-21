@@ -1,4 +1,4 @@
-.PHONY:	test golint
+.PHONY:	test golint smoke-test
 	
 # Copyright 2015 MediaMath <http://www.mediamath.com>.  All rights reserved.
 # Use of this source code is governed by a BSD-style
@@ -12,3 +12,6 @@ test: golint
 golint:
 	go get github.com/golang/lint/golint
 
+smoke-test:
+	go install  github.com/MediaMath/keryxlib/smoke
+	/bin/bash ./smokeTests/run_all.sh

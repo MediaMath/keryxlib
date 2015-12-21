@@ -10,6 +10,18 @@ import (
 	"github.com/MediaMath/keryxlib/message"
 )
 
+func TestTransactionsThat(t *testing.T) {
+	cond := condition(t, `{"transactions_that": [{"transaction_is": {"xid": 1234}}, {"transaction_is": {"xid":567}}]}`)
+	//removes one of the conditions, transactions_that is not ordered
+	doesntMatch(cond, &message.Transaction{TransactionID: 567}, t, "TransactionsThat")
+	//doesnt remove a condition
+	doesntMatch(cond, &message.Transaction{TransactionID: 12345}, t, "TransactionsThat")
+	//removes the last condition
+	matches(cond, &message.Transaction{TransactionID: 1234}, t, "TransactionsThat")
+	//true for evermore after that
+	matches(cond, &message.Transaction{TransactionID: 9999}, t, "TransactionsThat")
+}
+
 func TestAlways(t *testing.T) {
 	cond := condition(t, `{"always": {}}`)
 	matches(cond, &message.Transaction{TransactionID: 1234}, t, "Always")
