@@ -16,17 +16,48 @@ import (
 
 //PopulatedMessageStream takes collections of commited WAL entries, organized by transaction and populates them from the db with their current values.  It then publishes them as a Transaction message.
 type PopulatedMessageStream struct {
-	Filter          filters.MessageFilter
+	Filters         filters.MessageFilter
 	SchemaReader    *pg.SchemaReader
 	MaxMessageCount uint
 }
 
-func interestingEntryType(entry *wal.Entry) bool {
-	return entry.Type == wal.Insert || entry.Type == wal.Update || entry.Type == wal.Delete
+func (b *PopulatedMessageStream) populateTransaction(txn *message.Transaction, entries []*wal.Entry) {
+	var messages []message.Message
+	for _, entry := range entries {
+		msg := createMessage(entry)
+
+		msg.PopulateTime = time.Now().UTC()
+		b.populate(msg)
+		msg.PopulateDuration = time.Now().UTC().Sub(msg.PopulateTime)
+
+		messages = append(messages, *msg)
+	}
+
+	txn.Messages = messages
 }
 
-func (b *PopulatedMessageStream) filterRelation(entry *wal.Entry) bool {
-	return entry.RelationID > 0 && b.Filter.FilterRelID(entry.RelationID)
+func (b *PopulatedMessageStream) populateBigTransaction(txn *message.Transaction, entries []*wal.Entry) {
+	txn.MessageCount = len(entries)
+	seen := make(map[string]bool)
+	tables := []message.Table{}
+	for _, entry := range entries {
+
+		if entry.Type == wal.Insert || entry.Type == wal.Update || entry.Type == wal.Delete {
+			//TODO: key off of something less expensive
+			key := fmt.Sprintf("%v.%v.%v", entry.DatabaseID, entry.TablespaceID, entry.RelationID)
+			_, found := seen[key]
+
+			if !found {
+				seen[key] = true
+				table := &message.Table{}
+				table.DatabaseName = b.SchemaReader.GetDatabaseName(entry.DatabaseID)
+				table.Namespace, table.Relation = b.SchemaReader.GetNamespaceAndTable(entry.DatabaseID, entry.RelationID)
+				tables = append(tables, *table)
+			}
+		}
+	}
+
+	txn.Tables = tables
 }
 
 //Start begins async selecting on the WAL transaction buffer channel
@@ -34,35 +65,22 @@ func (b *PopulatedMessageStream) Start(serverVersion string, entryChan <-chan []
 	txns := make(chan *message.Transaction)
 	go func() {
 		for entries := range entryChan {
-			var messages []message.Message
-			shouldPopulate := b.MaxMessageCount < 1 || uint(len(entries)) <= b.MaxMessageCount
-			for _, entry := range entries {
-				if interestingEntryType(entry) && b.SchemaReader.HaveConnectionToDb(entry.DatabaseID) && !b.filterRelation(entry) {
-					msg := createMessage(entry)
-
-					if shouldPopulate {
-						msg.PopulateTime = time.Now().UTC()
-						b.populate(msg)
-						msg.PopulateDuration = time.Now().UTC().Sub(msg.PopulateTime)
-					}
-
-					messages = append(messages, *msg)
-				}
-			}
-
-			if len(messages) > 0 {
+			if len(entries) > 0 {
 				txn := &message.Transaction{}
-				txn.Messages = messages
 				txn.ServerVersion = serverVersion
 
 				commit := entries[len(entries)-1]
 				txn.TransactionID = commit.TransactionID
 				txn.CommitKey = createKey(commit)
-				txn.FirstKey = messages[0].Key
 				txn.CommitTime = time.Unix(0, commit.ParseTime).UTC()
 
-				if !shouldPopulate {
-					txn.SwitchToTableBasedMessage()
+				first := entries[0]
+				txn.FirstKey = createKey(first)
+
+				if b.MaxMessageCount < 1 || uint(len(entries)) <= b.MaxMessageCount {
+					b.populateTransaction(txn, entries)
+				} else {
+					b.populateBigTransaction(txn, entries)
 				}
 
 				txn.TransactionTime = time.Now().UTC()
@@ -108,7 +126,7 @@ func (b *PopulatedMessageStream) populate(rvMsg *message.Message) {
 			rvMsg.PopulationError = fmt.Sprintf("Message skipped for no fields.")
 		} else {
 			for f, v := range vs {
-				if !b.Filter.FilterColumn(rvMsg.RelFullName(), f.Column) {
+				if !b.Filters.FilterColumn(rvMsg.RelFullName(), f.Column) {
 					rvMsg.AppendField(f.Column, f.String(), v)
 				}
 			}
