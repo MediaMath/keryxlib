@@ -35,7 +35,7 @@ func (config *Config) IncludedTables() []message.Table {
 
 func (config *Config) ExcludedTables() []message.Table {
 	var tables []message.Table
-	for tableName, columns := range config.IncludeRelations {
+	for tableName, columns := range config.ExcludeRelations {
 		table := message.TableFromFullName(tableName)
 		if table != nil && (len(columns) != 0 || columns[0] != "*") {
 			tables = append(tables, *table)
