@@ -17,7 +17,7 @@ import (
 const (
 	nameQuery   = "select pg_namespace.nspname, pg_class.relname from pg_class join pg_namespace on pg_namespace.oid = pg_class.relnamespace where pg_relation_filenode(pg_class.oid) = $1"
 	fieldsQuery = "select column_name, data_type, coalesce(character_maximum_length,numeric_precision, 0) as size from information_schema.columns where table_schema = $1 and table_name = $2 order by ordinal_position"
-	relIDName   = "select pg_relation_filenode(rel.oid) relation_id, concat_ws('.', current_database(), ns.nspname, rel.relname) relation_name from pg_class rel join pg_namespace ns on ns.oid = rel.relnamespace where rel.relfilenode != 0 and ns.nspname not in ('pg_catalog', 'pg_toast', 'information_schema');"
+	relIDName   = "select coalesce(pg_relation_filenode(rel.oid), rel.relfilenode) relation_id, concat_ws('.', current_database(), ns.nspname, rel.relname) relation_name from pg_class rel join pg_namespace ns on ns.oid = rel.relnamespace"
 )
 
 //Schema is the full representation of a Table
