@@ -6,6 +6,7 @@ package message
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -126,6 +127,19 @@ type Table struct {
 //RelFullName is a full table address of the form db.ns.table
 func (msg Table) RelFullName() string {
 	return fmt.Sprintf("%s.%s.%s", msg.DatabaseName, msg.Namespace, msg.Relation)
+}
+
+func TableFromFullName(fullName string) *Table {
+	components := strings.Split(fullName, ".")
+	if len(components) != 3 {
+		return nil
+	}
+
+	return &Table{
+		DatabaseName: components[0],
+		Namespace:    components[1],
+		Relation:     components[2],
+	}
 }
 
 //SwitchToTableBasedMessage will get all the unique table names out of the messages

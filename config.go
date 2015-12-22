@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"os"
+
+	"github.com/MediaMath/keryxlib/message"
 )
 
 //Config contains necessary information to start a keryx stream
@@ -15,6 +17,31 @@ type Config struct {
 	IncludeRelations map[string][]string `json:"include,omitempty"`
 	BufferDirectory  string              `json:"buffer_directory"`
 	MaxMessagePerTxn uint                `json:"max_message_per_txn"`
+}
+
+func (config *Config) IncludedTables() []message.Table {
+	var tables []message.Table
+	if len(config.IncludeRelations) > 0 {
+		for tableName, _ := range config.IncludeRelations {
+			table := message.TableFromFullName(tableName)
+			if table != nil {
+				tables = append(tables, *table)
+			}
+
+		}
+	}
+	return tables
+}
+
+func (config *Config) ExcludedTables() []message.Table {
+	var tables []message.Table
+	for tableName, columns := range config.ExcludeRelations {
+		table := message.TableFromFullName(tableName)
+		if table != nil && (len(columns) != 0 || columns[0] != "*") {
+			tables = append(tables, *table)
+		}
+	}
+	return tables
 }
 
 //BufferDirectoryDefaultBase is the root directory to attempt to create buffers files in if
