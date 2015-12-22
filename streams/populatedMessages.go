@@ -24,13 +24,15 @@ type PopulatedMessageStream struct {
 func (b *PopulatedMessageStream) populateTransaction(txn *message.Transaction, entries []*wal.Entry) {
 	var messages []message.Message
 	for _, entry := range entries {
-		msg := createMessage(entry)
+		if entry.Type == wal.Insert || entry.Type == wal.Update || entry.Type == wal.Delete {
+			msg := createMessage(entry)
 
-		msg.PopulateTime = time.Now().UTC()
-		b.populate(msg)
-		msg.PopulateDuration = time.Now().UTC().Sub(msg.PopulateTime)
+			msg.PopulateTime = time.Now().UTC()
+			b.populate(msg)
+			msg.PopulateDuration = time.Now().UTC().Sub(msg.PopulateTime)
 
-		messages = append(messages, *msg)
+			messages = append(messages, *msg)
+		}
 	}
 
 	txn.Messages = messages
