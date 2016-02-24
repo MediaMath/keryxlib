@@ -15,7 +15,7 @@ const prepareTestDataDir = "./test_data/prepare_test_data_dir.sh"
 func TestCorrectCountOfRecordsParsedSincePreviousCheckpoint(t *testing.T) {
 	skipIfTestDataDirMissing(t)
 
-	cptr, err := NewCursorAtCheckpoint(testDataDir)
+	cptr, err := NewCursorAtPrevCheckpoint(testDataDir)
 	if err != nil {
 		t.Fatalf("error creating cursor: %v", err)
 	}
@@ -42,7 +42,7 @@ func TestCorrectCountOfRecordsParsedSincePreviousCheckpoint(t *testing.T) {
 	for typ, expected := range expectedCounts {
 		actual, ok := actualCounts[typ]
 		if !ok || actual != expected {
-			t.Fatalf("incorrect count for type: %v; expected %v but got %v", typ, expected, actual)
+			t.Errorf("incorrect count for type: %v; expected %v but got %v", typ, expected, actual)
 		}
 	}
 }

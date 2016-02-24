@@ -23,6 +23,19 @@ func NewCursorAtCheckpoint(path string) (cursor *Cursor, err error) {
 	return
 }
 
+// NewCursorAtPrevCheckpoint creates a new cursor pointing at the current checkpoint
+func NewCursorAtPrevCheckpoint(path string) (cursor *Cursor, err error) {
+	control, err := control.NewControlFromDataDir(path)
+	if err == nil {
+		blockReader := blockReader{path, control.XlogBlcksz, control.MaxAlign}
+		checkPointLocation := LocationFromUint32s(control.PrevCheckPointLogID, control.PrevCheckPointRecordOffset)
+
+		cursor = &Cursor{checkPointLocation, blockReader}
+	}
+
+	return
+}
+
 // Cursor models a position in the WAL of a PostgreSQL system
 type Cursor struct {
 	location Location

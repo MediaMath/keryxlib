@@ -44,10 +44,6 @@ update test set date_string='$DATE_STRING updated';
 delete from test;
 "
 
-for x in {0..400}; do
-	echo "$TEST_SQL" | psql
-done
-
 echo "checkpoint;" | psql
 
 echo "$TEST_SQL" | psql
