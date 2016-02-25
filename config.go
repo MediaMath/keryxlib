@@ -19,10 +19,11 @@ type Config struct {
 	MaxMessagePerTxn uint                `json:"max_message_per_txn"`
 }
 
+//IncludedTables returns message.Tables from the config
 func (config *Config) IncludedTables() []message.Table {
 	var tables []message.Table
 	if len(config.IncludeRelations) > 0 {
-		for tableName, _ := range config.IncludeRelations {
+		for tableName := range config.IncludeRelations {
 			table := message.TableFromFullName(tableName)
 			if table != nil {
 				tables = append(tables, *table)
@@ -33,6 +34,7 @@ func (config *Config) IncludedTables() []message.Table {
 	return tables
 }
 
+//ExcludedTables returns message.Tables from the config
 func (config *Config) ExcludedTables() []message.Table {
 	var tables []message.Table
 	for tableName, columns := range config.ExcludeRelations {
@@ -49,8 +51,8 @@ func (config *Config) ExcludedTables() []message.Table {
 const BufferDirectoryDefaultBase = "/var/tmp/keryx"
 
 //GetBufferDirectoryOrTemp gets the buffer directory out of the config file. If it isnt defined it creates it in BufferDirectoryDefaultBase
-func (c *Config) GetBufferDirectoryOrTemp() (bufferWorkingDirectory string, err error) {
-	bufferWorkingDirectory = c.BufferDirectory
+func (config *Config) GetBufferDirectoryOrTemp() (bufferWorkingDirectory string, err error) {
+	bufferWorkingDirectory = config.BufferDirectory
 	if bufferWorkingDirectory == "" {
 		err = os.MkdirAll(BufferDirectoryDefaultBase, 0700)
 		if err == nil {
