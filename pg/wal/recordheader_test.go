@@ -9,7 +9,7 @@ import "testing"
 func TestRecordHeaderExpectations(t *testing.T) {
 	readFrom := NewLocationWithDefaults(0)
 	for _, exp := range recordHeaderExpectations {
-		act := RecordHeader{readFrom, exp.bs}
+		act := RecordHeader{readFrom, readFrom, exp.bs, 0xD066}
 		failIfRecordHeaderNotMatching(t, exp, act)
 	}
 }

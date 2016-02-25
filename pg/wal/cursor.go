@@ -23,6 +23,19 @@ func NewCursorAtCheckpoint(path string) (cursor *Cursor, err error) {
 	return
 }
 
+// NewCursorAtPrevCheckpoint creates a new cursor pointing at the current checkpoint
+func NewCursorAtPrevCheckpoint(path string) (cursor *Cursor, err error) {
+	control, err := control.NewControlFromDataDir(path)
+	if err == nil {
+		blockReader := blockReader{path, control.XlogBlcksz, control.MaxAlign}
+		checkPointLocation := LocationFromUint32s(control.PrevCheckPointLogID, control.PrevCheckPointRecordOffset)
+
+		cursor = &Cursor{checkPointLocation, blockReader}
+	}
+
+	return
+}
+
 // Cursor models a position in the WAL of a PostgreSQL system
 type Cursor struct {
 	location Location
@@ -52,8 +65,8 @@ func (c Cursor) ReadEntry() (entry *Entry, cur Cursor, err error) {
 	block := cur.reader.readBlock(cur.location)
 	page := &Page{block}
 
-	recordHeader := NewRecordHeader(block, cur.location)
-	afterRecordHeader := cur.MoveTo(cur.location.Add(RecordHeaderSize).Aligned())
+	recordHeader := NewRecordHeader(block, cur.location, page.Magic(), cur.reader)
+	afterRecordHeader := cur.MoveTo(recordHeader.afterHeader)
 	recordBody := NewRecordBody(recordHeader)
 
 	var bytesRead uint64
@@ -80,7 +93,7 @@ func (c Cursor) ReadEntry() (entry *Entry, cur Cursor, err error) {
 	entry = NewEntry(page, recordHeader, recordBody)
 	cur = cur.MoveTo(cur.location.Add(bytesRead).Aligned())
 
-	nextRecord := scanForRecordWithPrevious(c, c.MoveTo(c.location.Add(1).Aligned()))
+	nextRecord := scanForRecordWithPrevious(c, cur, recordHeader.Size())
 	if nextRecord != nil {
 		cur = *nextRecord
 	} else {
@@ -93,21 +106,22 @@ func (c Cursor) ReadEntry() (entry *Entry, cur Cursor, err error) {
 	return
 }
 
-func scanForRecordWithPrevious(previous, startAt Cursor) *Cursor {
+func scanForRecordWithPrevious(previous, startAt Cursor, recordHeaderSize uint64) *Cursor {
 	out := samePageScanForRecordWithPrevious(previous, startAt)
 	if out == nil {
-		out = multiPageScanForRecordWithPrevious(previous, startAt)
+		out = multiPageScanForRecordWithPrevious(previous, startAt, recordHeaderSize)
 	}
 	return out
 }
 
 func samePageScanForRecordWithPrevious(previous, startAt Cursor) *Cursor {
 	block := startAt.reader.readBlock(startAt.location)
+	page := &Page{block}
 
 	cur := startAt.MoveTo(startAt.location.Aligned())
 
 	for cur.location.IsOnSamePageAs(startAt.location) {
-		maybeHeader := NewRecordHeader(block, cur.location)
+		maybeHeader := NewRecordHeader(block, cur.location, page.Magic(), cur.reader)
 		if maybeHeader != nil && maybeHeader.Previous().Offset() == previous.location.Offset() {
 			return &cur
 		}
@@ -118,15 +132,17 @@ func samePageScanForRecordWithPrevious(previous, startAt Cursor) *Cursor {
 	return nil
 }
 
-func multiPageScanForRecordWithPrevious(previous, startAt Cursor) (out *Cursor) {
+func multiPageScanForRecordWithPrevious(previous, startAt Cursor, recordHeaderSize uint64) (out *Cursor) {
 	var cur *Cursor
 	for cur == nil {
 		startAt = startAt.MoveTo(startAt.location.StartOfNextPage())
-		cur = cursorAtFirstRecordOnPage(startAt)
+		cur = cursorAtFirstRecordOnPage(startAt, recordHeaderSize)
 	}
 
 	block := cur.reader.readBlock(cur.location)
-	maybeHeader := NewRecordHeader(block, cur.location)
+	page := &Page{block}
+
+	maybeHeader := NewRecordHeader(block, cur.location, page.Magic(), cur.reader)
 	if maybeHeader != nil && maybeHeader.Previous().Offset() == previous.location.Offset() {
 		out = cur
 	}
@@ -134,7 +150,7 @@ func multiPageScanForRecordWithPrevious(previous, startAt Cursor) (out *Cursor) 
 	return
 }
 
-func cursorAtFirstRecordOnPage(startAt Cursor) (out *Cursor) {
+func cursorAtFirstRecordOnPage(startAt Cursor, recordHeaderSize uint64) (out *Cursor) {
 	block := startAt.reader.readBlock(startAt.location)
 	page := Page{block}
 
@@ -142,7 +158,7 @@ func cursorAtFirstRecordOnPage(startAt Cursor) (out *Cursor) {
 
 	if cont := page.Continuation(); cont != nil {
 		afterCont := cur.location.Add(uint64(len(cont) + 4)).Aligned()
-		if afterCont.IsOnSamePageAs(cur.location) && afterCont.ToEndOfPage() >= RecordHeaderSize {
+		if afterCont.IsOnSamePageAs(cur.location) && afterCont.ToEndOfPage() >= recordHeaderSize {
 			curAfterCont := cur.MoveTo(afterCont)
 			out = &curAfterCont
 		}

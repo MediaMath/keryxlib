@@ -129,6 +129,7 @@ func (msg Table) RelFullName() string {
 	return fmt.Sprintf("%s.%s.%s", msg.DatabaseName, msg.Namespace, msg.Relation)
 }
 
+//TableFromFullName builds a Table struct from a <database>.<namespace>.<relation> string
 func TableFromFullName(fullName string) *Table {
 	components := strings.Split(fullName, ".")
 	if len(components) != 3 {

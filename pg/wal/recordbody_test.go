@@ -109,7 +109,7 @@ func createBlock(totalLength uint32, readFrom Location) ([]byte, *RecordBody) {
 	block[offset+18] = byte((totalLength & 0x00ffffff) >> 16)
 	block[offset+19] = byte(totalLength >> 24)
 
-	header := NewRecordHeader(block, readFrom)
+	header := NewRecordHeader(block, readFrom, 0xD066, blockReader{})
 
 	body := NewRecordBody(header)
 
