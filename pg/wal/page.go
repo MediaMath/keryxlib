@@ -13,7 +13,22 @@ type Page struct {
 
 // MagicValueIsValid indicates if a Page is correct or not
 func (p Page) MagicValueIsValid() bool {
-	return p.bs[0] == 0x66 && p.bs[1] == 0xD0
+	return p.Is91() || p.Is94()
+}
+
+// Magic returns the format version of the page
+func (p Page) Magic() uint16 {
+	return uint16(p.bs[1])<<8 + uint16(p.bs[0])
+}
+
+// Is91 indicates if a Page is from version 9.1
+func (p Page) Is91() bool {
+	return p.Magic() == 0xD066
+}
+
+// Is94 indicates if a Page is from version 9.4
+func (p Page) Is94() bool {
+	return p.Magic() == 0xD07E
 }
 
 // Info can be used to determine if a page header is long (bit 2 is set) or if it contains a continuation (bit 1 is set)
@@ -28,7 +43,11 @@ func (p Page) TimelineID() uint32 {
 
 // Location is the Location this page starts at
 func (p Page) Location() Location {
-	return LocationFromUint32s(uint32(pg.LUint(p.bs[8:12])), uint32(pg.LUint(p.bs[12:16])))
+	if p.Is91() {
+		return LocationFromUint32s(uint32(pg.LUint(p.bs[8:12])), uint32(pg.LUint(p.bs[12:16])))
+	}
+
+	return LocationFromUint32s(uint32(pg.LUint(p.bs[12:16])), uint32(pg.LUint(p.bs[8:12])))
 }
 
 // SystemID can be used to determine if a page was written by a particular server
