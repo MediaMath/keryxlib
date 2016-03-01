@@ -44,10 +44,8 @@ func StartTransactionChannel(serverVersion string, kc *Config, stopper *TxnChann
 		}
 
 		go func() {
-			select {
-			case <-stopper.done:
-				stream.Stop()
-			}
+			<-stopper.done
+			stream.Stop()
 		}()
 	}
 	return stream.StartKeryxStream(serverVersion, f, kc.DataDir, bufferWorkingDirectory)
