@@ -121,30 +121,43 @@ func EntryFromBytes(bs []byte) Entry {
 	}
 }
 
-// NewEntry builds an entry from a page, record header, record body and a location
-func NewEntry(page *Page, recordHeader *RecordHeader, recordBody *RecordBody) *Entry {
-	entry := &Entry{
-		Type:          recordHeader.Type(),
-		ReadFrom:      recordHeader.readFrom,
-		Previous:      recordHeader.Previous(),
-		TimelineID:    page.TimelineID(),
-		LogID:         page.Location().LogID(),
-		TransactionID: recordHeader.TransactionID(),
-	}
+// NewEntries builds an entry from a page, record header, record body and a location
+func NewEntries(page *Page, recordHeader *RecordHeader, recordBody *RecordBody) (entries []Entry) {
+	var now = time.Now().UnixNano()
 
 	heapData := recordBody.HeapData()
-	if heapData != nil {
-		entry.TablespaceID = heapData.TablespaceID()
-		entry.DatabaseID = heapData.DatabaseID()
-		entry.RelationID = heapData.RelationID()
-		entry.FromBlock = heapData.FromBlock()
-		entry.FromOffset = heapData.FromOffset()
-		entry.ToBlock = heapData.ToBlock()
-		entry.ToOffset = heapData.ToOffset()
+	if len(heapData) > 0 {
+		for _, heapData := range heapData {
+			entries = append(entries, Entry{
+				Type:          recordHeader.Type(),
+				ReadFrom:      recordHeader.readFrom,
+				Previous:      recordHeader.Previous(),
+				TimelineID:    page.TimelineID(),
+				LogID:         page.Location().LogID(),
+				TransactionID: recordHeader.TransactionID(),
+				TablespaceID:  heapData.TablespaceID(),
+				DatabaseID:    heapData.DatabaseID(),
+				RelationID:    heapData.RelationID(),
+				FromBlock:     heapData.FromBlock(),
+				FromOffset:    heapData.FromOffset(),
+				ToBlock:       heapData.ToBlock(),
+				ToOffset:      heapData.ToOffset(),
+				ParseTime:     now,
+			})
+		}
+	} else {
+		entries = append(entries, Entry{
+			Type:          recordHeader.Type(),
+			ReadFrom:      recordHeader.readFrom,
+			Previous:      recordHeader.Previous(),
+			TimelineID:    page.TimelineID(),
+			LogID:         page.Location().LogID(),
+			TransactionID: recordHeader.TransactionID(),
+			ParseTime:     now,
+		})
 	}
 
-	entry.ParseTime = time.Now().UnixNano()
-	return entry
+	return
 }
 
 func (e Entry) String() string {

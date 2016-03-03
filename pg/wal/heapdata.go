@@ -23,14 +23,16 @@ type HeapData interface {
 }
 
 // NewHeapData will interpret the heap data based on record type
-func NewHeapData(recordType RecordType, data []byte) HeapData {
+func NewHeapData(recordType RecordType, isInit bool, data []byte) []HeapData {
 	switch recordType {
 	case Insert:
-		return InsertData(data)
+		return []HeapData{InsertData(data)}
 	case Update:
-		return UpdateData(data)
+		return []HeapData{UpdateData(data)}
 	case Delete:
-		return DeleteData(data)
+		return []HeapData{DeleteData(data)}
+	case MultiInsert:
+		return parseMultiInsertData(isInit, data)
 	}
 
 	return nil
@@ -118,6 +120,71 @@ func (d DeleteData) ToOffset() uint16 { return 0 }
 
 func (d DeleteData) String() string {
 	return fmt.Sprintf("Delete in %v/%v/%v from (%v,%v)", d.TablespaceID(), d.DatabaseID(), d.RelationID(), d.FromBlock(), d.FromOffset())
+}
+
+// MultiInsertData reads heap data as an insert
+type MultiInsertData struct {
+	tablespaceID uint32
+	databaseID   uint32
+	relationID   uint32
+	toBlock      uint32
+	toOffset     uint16
+}
+
+// TablespaceID is the id of the tablespace this tuple is found in
+func (d MultiInsertData) TablespaceID() uint32 { return d.tablespaceID }
+
+// DatabaseID is the id of the database this tuple is found in
+func (d MultiInsertData) DatabaseID() uint32 { return d.databaseID }
+
+// RelationID is the id of the relation this tuple is found in
+func (d MultiInsertData) RelationID() uint32 { return d.relationID }
+
+// FromBlock is not available for inserts
+func (d MultiInsertData) FromBlock() uint32 { return 0 }
+
+// FromOffset is not available for inserts
+func (d MultiInsertData) FromOffset() uint16 { return 0 }
+
+// ToBlock is the page number where this tuple now resides
+func (d MultiInsertData) ToBlock() uint32 { return d.toBlock }
+
+// ToOffset is the item number where this tuple now resides
+func (d MultiInsertData) ToOffset() uint16 { return d.toOffset }
+
+func (d MultiInsertData) String() string {
+	return fmt.Sprintf("MultiInsert in %v/%v/%v to (%v,%v)", d.TablespaceID(), d.DatabaseID(), d.RelationID(), d.ToBlock(), d.ToOffset())
+}
+
+func parseMultiInsertData(isInit bool, d []byte) (multiInserts []HeapData) {
+	const XlogHeapInitPage = 128
+
+	var (
+		tablespaceID = uint32(pg.LUint(d[0:4]))
+		databaseID   = uint32(pg.LUint(d[4:8]))
+		relationID   = uint32(pg.LUint(d[8:12]))
+		toBlock      = uint32(pg.LUint(d[12:16]))
+		flags        = d[16]
+		ntuples      = uint16(pg.LUint(d[18:20]))
+	)
+
+	isInit = isInit || flags&XlogHeapInitPage > 0
+
+	for i := uint16(0); i < ntuples; i++ {
+		if isInit {
+			multiInserts = append(multiInserts, MultiInsertData{tablespaceID, databaseID, relationID, toBlock, i + 1})
+		} else {
+			var (
+				start    = i*2 + 20
+				end      = start + 2
+				toOffset = uint16(pg.LUint(d[start:end]))
+			)
+
+			multiInserts = append(multiInserts, MultiInsertData{tablespaceID, databaseID, relationID, toBlock, toOffset})
+		}
+	}
+
+	return
 }
 
 func readBlockID(bs []byte) uint32 {

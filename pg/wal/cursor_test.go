@@ -28,12 +28,14 @@ func TestCorrectCountOfRecordsParsedSincePreviousCheckpoint(t *testing.T) {
 	}
 	actualCounts := make(map[RecordType]uint64)
 
-	var ent *Entry
+	var ents []Entry
 
 	for {
-		ent, c, err = c.ReadEntry()
-		if err == nil && ent != nil {
-			actualCounts[ent.Type]++
+		ents, c, err = c.ReadEntries()
+		if err == nil && ents != nil {
+			for _, ent := range ents {
+				actualCounts[ent.Type]++
+			}
 		} else {
 			break
 		}

@@ -6,6 +6,7 @@ package wal
 
 // RecordBody collects the bytes that make up the body of a record
 type RecordBody struct {
+	header      *RecordHeader
 	bs          []byte
 	whatsNeeded uint64
 	typ         RecordType
@@ -15,7 +16,7 @@ type RecordBody struct {
 func NewRecordBody(recordHeader *RecordHeader) *RecordBody {
 	whatsNeeded := uint64(recordHeader.TotalLength()) - recordHeader.AlignedSize()
 
-	return &RecordBody{whatsNeeded: whatsNeeded, typ: recordHeader.Type()}
+	return &RecordBody{header: recordHeader, whatsNeeded: whatsNeeded, typ: recordHeader.Type()}
 }
 
 // AppendBodyAfterHeader reads what is available of the body on the same page and appends it to the body
@@ -48,8 +49,8 @@ func (r *RecordBody) IsComplete() bool {
 }
 
 // HeapData interprets the body based on the type indicated in the record header
-func (r *RecordBody) HeapData() HeapData {
-	return NewHeapData(r.typ, r.bs)
+func (r *RecordBody) HeapData() []HeapData {
+	return NewHeapData(r.typ, r.header.IsInit(), r.bs)
 }
 
 func readBody(block []byte, location Location, length uint64) []byte {

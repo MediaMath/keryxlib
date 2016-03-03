@@ -104,7 +104,6 @@ func printTxn(txn *message.Transaction) {
 }
 
 func runSmoke(config *keryxlib.Config, condition tko.Condition, timeout time.Duration, verbose bool) (*message.Transaction, error) {
-
 	keryxChan, err := keryxlib.TransactionChannel("smoke", config)
 	if err != nil {
 		return nil, err

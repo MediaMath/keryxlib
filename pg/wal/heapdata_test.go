@@ -8,8 +8,8 @@ import "testing"
 
 func TestHeapDataExpectations(t *testing.T) {
 	for _, exp := range heapDataExpectations {
-		if act := NewHeapData(exp.typ, exp.bs); act.String() != exp.str {
-			t.Errorf("expected %q but got %q", exp.str, act.String())
+		if act := NewHeapData(exp.typ, false, exp.bs); act[0].String() != exp.str {
+			t.Errorf("expected %q but got %q", exp.str, act[0].String())
 		}
 	}
 }
