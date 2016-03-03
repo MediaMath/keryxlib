@@ -8,12 +8,13 @@ import "github.com/MediaMath/keryxlib/pg"
 
 // These constants describe the type of heap tuple found in the WAL
 const (
-	Unknown = iota // Unknown describes an entry in the WAL that is not interesting to us
-	Insert         // Insert describes a tuple being inserted into a heap
-	Update         // Update describes a tuple being updated in the heap
-	Delete         // Delete describes a tuple being deleted from the heap
-	Commit         // Commit describes a transaction being committed
-	Abort          // Abort describes a transaction being aborted
+	Unknown     = iota // Unknown describes an entry in the WAL that is not interesting to us
+	Insert             // Insert describes a tuple being inserted into a heap
+	Update             // Update describes a tuple being updated in the heap
+	Delete             // Delete describes a tuple being deleted from the heap
+	Commit             // Commit describes a transaction being committed
+	Abort              // Abort describes a transaction being aborted
+	MultiInsert        // MultiInsert describes a block of tuples being inserted into a heap
 )
 
 // RecordType is a constant representing how an xlog record should be interpreted
@@ -39,9 +40,20 @@ func NewRecordHeader(block []byte, location Location, version uint16, reader blo
 		if version == 0xD07E {
 			nextBlock := reader.readBlock(location.Add(rh.Size()))
 			nextPage := Page{nextBlock}
-			cont := nextPage.Continuation()
-			block = append(block, cont[4:]...)
-			rh.afterHeader = location.Add(rh.Size()).Add(nextPage.HeaderLength()).Add(8).Aligned()
+
+			var newBlock []byte
+			newBlock = append(newBlock, block...)
+
+			if nextPage.IsCont() {
+				cont := nextPage.Continuation()
+				newBlock = append(newBlock, cont[4:]...)
+				rh.afterHeader = location.Add(rh.Size()).Add(nextPage.HeaderLength()).Add(8).Aligned()
+			} else {
+				newBlock = append(newBlock, nextBlock[nextPage.HeaderLength():]...)
+				rh.afterHeader = location.Add(rh.Size()).Add(nextPage.HeaderLength()).Aligned()
+				return nil
+			}
+			block = newBlock
 		} else {
 			return nil
 		}
@@ -143,8 +155,12 @@ func (r RecordHeader) Type() RecordType {
 	switch combined {
 	case 0x0100:
 		return Commit
+	case 0x0160:
+		return Commit // COMPACT
 	case 0x0120:
 		return Abort
+	case 0x0950:
+		return MultiInsert
 	case 0x0A00:
 		return Insert
 	case 0x0A10:
@@ -156,6 +172,11 @@ func (r RecordHeader) Type() RecordType {
 	}
 
 	return Unknown
+}
+
+// IsInit indicates if this record initializes a page
+func (r RecordHeader) IsInit() bool {
+	return r.Info()&0x80 > 0
 }
 
 // Size will return the size of the header

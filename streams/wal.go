@@ -85,7 +85,7 @@ func (streamer *WalStream) startAtCheckpoint() error {
 func (streamer *WalStream) publishUntilErrorOrStopped() (stopped bool) {
 	stopped = false
 
-	var ent *wal.Entry
+	var ents []wal.Entry
 	var previousCursor, currentCursor wal.Cursor
 	var err error
 
@@ -95,14 +95,16 @@ func (streamer *WalStream) publishUntilErrorOrStopped() (stopped bool) {
 
 		previousCursor = currentCursor
 
-		ent, currentCursor, err = currentCursor.ReadEntry()
+		ents, currentCursor, err = currentCursor.ReadEntries()
 
-		if err == nil && ent != nil {
-			if ent.ReadFrom.Offset() > streamer.lastOffsetPublished {
-				streamer.publish <- ent
-				*streamer.cursor = currentCursor
+		if err == nil && len(ents) > 0 {
+			for _, ent := range ents {
+				if ent.ReadFrom.Offset() > streamer.lastOffsetPublished {
+					streamer.publish <- &ent
+					*streamer.cursor = currentCursor
 
-				streamer.lastOffsetPublished = ent.ReadFrom.Offset()
+					streamer.lastOffsetPublished = ent.ReadFrom.Offset()
+				}
 			}
 		} else {
 			keepReading = false

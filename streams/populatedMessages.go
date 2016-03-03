@@ -164,6 +164,8 @@ func createMessage(entry *wal.Entry) *message.Message {
 	msg.Fields = make([]message.Field, 0)
 
 	switch entry.Type {
+	case wal.MultiInsert:
+		fallthrough
 	case wal.Insert:
 		msg.Type = message.InsertMessage
 		msg.Block = entry.ToBlock

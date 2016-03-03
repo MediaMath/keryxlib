@@ -51,8 +51,8 @@ func (c Cursor) MoveTo(location Location) Cursor {
 	return Cursor{location, c.reader}
 }
 
-// ReadEntry will read a tuple at the current location and if successful advance to the next tuple
-func (c Cursor) ReadEntry() (entry *Entry, cur Cursor, err error) {
+// ReadEntries will read a tuple at the current location and if successful advance to the next tuple
+func (c Cursor) ReadEntries() (entries []Entry, cur Cursor, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			if e, ok := r.(error); ok {
@@ -90,7 +90,7 @@ func (c Cursor) ReadEntry() (entry *Entry, cur Cursor, err error) {
 		}
 	}
 
-	entry = NewEntry(page, recordHeader, recordBody)
+	entries = NewEntries(page, recordHeader, recordBody)
 	cur = cur.MoveTo(cur.location.Add(bytesRead).Aligned())
 
 	nextRecord := scanForRecordWithPrevious(c, cur, recordHeader.Size())
@@ -98,8 +98,12 @@ func (c Cursor) ReadEntry() (entry *Entry, cur Cursor, err error) {
 		cur = *nextRecord
 	} else {
 		cur = c
-		if entry.Type != Commit && entry.Type != Abort {
-			entry = nil
+
+		if len(entries) > 0 {
+			entryType := entries[0].Type
+			if entryType != Commit && entryType != Abort {
+				entries = nil
+			}
 		}
 	}
 
