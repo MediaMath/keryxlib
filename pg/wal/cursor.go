@@ -51,7 +51,7 @@ func (c Cursor) MoveTo(location Location) Cursor {
 	return Cursor{location, c.reader}
 }
 
-// ReadEntries will read a tuple at the current location and if successful advance to the next tuple
+// ReadEntries will read the XLogRecord at the current location and if successful return the entries and a new cursor at the next location
 func (c Cursor) ReadEntries() (entries []Entry, cur Cursor, err error) {
 	defer func() {
 		if r := recover(); r != nil {

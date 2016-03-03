@@ -10,9 +10,9 @@ import "github.com/MediaMath/keryxlib/pg"
 const (
 	Unknown     = iota // Unknown describes an entry in the WAL that is not interesting to us
 	Insert             // Insert describes a tuple being inserted into a heap
-	Update             // Update describes a tuple being updated in the heap
+	Update             // Update describes a tuple (either regular or heap-only) being updated in the heap
 	Delete             // Delete describes a tuple being deleted from the heap
-	Commit             // Commit describes a transaction being committed
+	Commit             // Commit describes a transaction being committed (either normally or compact)
 	Abort              // Abort describes a transaction being aborted
 	MultiInsert        // MultiInsert describes a block of tuples being inserted into a heap
 )

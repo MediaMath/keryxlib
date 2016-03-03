@@ -13,10 +13,9 @@ func TestCorrectCountOfMultiInsertRecords(t *testing.T) {
 	}
 	c := *cptr
 
-	var (
-		expectedMultiInserts = 7313
-		actualMultiInserts   int
-	)
+	const expectedMultiInserts = 7313
+
+	actualMultiInserts := 0
 
 	var ents []Entry
 
