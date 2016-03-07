@@ -5,8 +5,6 @@ package keryxlib
 // license that can be found in the LICENSE file.
 
 import (
-	"fmt"
-
 	"github.com/MediaMath/keryxlib/filters"
 	"github.com/MediaMath/keryxlib/message"
 	"github.com/MediaMath/keryxlib/pg"
@@ -21,7 +19,7 @@ func TransactionChannel(serverVersion string, kc *Config) (<-chan *message.Trans
 
 //StartTransactionChannel sets up a keryx stream and schema reader with the provided configuration and return
 //it as a channel. The channel can be stopped with the provided stopper
-func StartTransactionChannel(serverVersion string, kc *Config, stopper *TxnChannelStopper) (<-chan *message.Transaction, error) {
+func StartTransactionChannel(serverVersion string, kc *Config, stopper WaitForStop) (<-chan *message.Transaction, error) {
 	schemaReader, err := pg.NewSchemaReader(kc.PGConnStrings, "postgres", 255)
 	if err != nil {
 		return nil, err
@@ -39,16 +37,17 @@ func StartTransactionChannel(serverVersion string, kc *Config, stopper *TxnChann
 
 	stream := NewKeryxStream(schemaReader, kc.MaxMessagePerTxn)
 	if stopper != nil {
-		if stopper.done == nil {
-			return nil, fmt.Errorf("Please use NewTxnChannelStopper to create your stopper")
-		}
-
 		go func() {
-			<-stopper.done
+			stopper.Wait()
 			stream.Stop()
 		}()
 	}
 	return stream.StartKeryxStream(serverVersion, f, kc.DataDir, bufferWorkingDirectory)
+}
+
+//WaitForStop will wait
+type WaitForStop interface {
+	Wait()
 }
 
 //NewTxnChannelStopper creates a TxnChannelStopper
@@ -64,6 +63,11 @@ type TxnChannelStopper struct {
 //Stop will initiate a Transaction channel shutdown
 func (t *TxnChannelStopper) Stop() {
 	close(t.done)
+}
+
+//Wait will block until Stop is called {
+func (t *TxnChannelStopper) Wait() {
+	<-t.done
 }
 
 //FullStream is a facade around the full process of taking WAL entries and publishing them as txn messages.
