@@ -158,11 +158,11 @@ func cursorAtFirstRecordOnPage(startAt Cursor, recordHeaderSize uint64) (out *Cu
 	block := startAt.reader.readBlock(startAt.location)
 	page := Page{block}
 
-	cur := startAt.MoveTo(startAt.location.StartOfPage().Add(page.HeaderLength()))
+	cur := startAt.MoveTo(startAt.location.StartOfPage().Add(page.HeaderLength()).Aligned())
 
 	if cont := page.Continuation(); cont != nil {
 		afterCont := cur.location.Add(uint64(len(cont) + 4)).Aligned()
-		if afterCont.IsOnSamePageAs(cur.location) && afterCont.ToEndOfPage() >= recordHeaderSize {
+		if afterCont.IsOnSamePageAs(cur.location) && (afterCont.ToEndOfPage() >= recordHeaderSize || page.Is94()) {
 			curAfterCont := cur.MoveTo(afterCont)
 			out = &curAfterCont
 		}

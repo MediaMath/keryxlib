@@ -80,9 +80,16 @@ func (p Page) BlockSize() uint32 {
 // Continuation will return the bytes of a continuation of the previous record's body if present on the page
 func (p Page) Continuation() []byte {
 	if p.IsCont() {
-		sizeOffset := p.HeaderLength()
-		contStart := sizeOffset + 4
-		contEnd := contStart + uint64(pg.LUint(p.bs[sizeOffset:contStart]))
+		var contStart, contEnd uint64
+
+		if p.Is94() {
+			contStart = p.HeaderLength()
+			contEnd = contStart + pg.LUint(p.bs[16:20])
+		} else {
+			sizeOffset := p.HeaderLength()
+			contStart = sizeOffset + 4
+			contEnd = contStart + pg.LUint(p.bs[sizeOffset:contStart])
+		}
 
 		maxContEnd := uint64(len(p.bs))
 		if contEnd > maxContEnd {
@@ -107,6 +114,14 @@ func (p Page) IsLong() bool {
 
 // HeaderLength returns the size in bytes of the portion of the page used for its header
 func (p Page) HeaderLength() uint64 {
+	if p.Is94() {
+		if p.IsLong() {
+			return 36
+		}
+
+		return 20
+	}
+
 	if p.IsLong() {
 		return 32
 	}
