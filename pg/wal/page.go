@@ -116,10 +116,10 @@ func (p Page) IsLong() bool {
 func (p Page) HeaderLength() uint64 {
 	if p.Is94() {
 		if p.IsLong() {
-			return 36
+			return 40
 		}
 
-		return 20
+		return 24
 	}
 
 	if p.IsLong() {
