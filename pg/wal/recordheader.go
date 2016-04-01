@@ -46,7 +46,7 @@ func NewRecordHeader(block []byte, location Location, version uint16, reader blo
 
 			if nextPage.IsCont() {
 				cont := nextPage.Continuation()
-				newBlock = append(newBlock, cont[4:]...)
+				newBlock = append(newBlock, cont...)
 				rh.afterHeader = location.Add(rh.Size()).Add(nextPage.HeaderLength()).Add(8).Aligned()
 			} else {
 				return nil
