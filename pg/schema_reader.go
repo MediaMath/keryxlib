@@ -116,7 +116,7 @@ func (sr *SchemaReader) LatestReplayLocation() uint64 {
 
 		db := dbDetails.Conn
 
-		rs, err := db.Query("select case when pg_is_in_recovery() then case when pg_last_xlog_replay_location()::text like '%/%' then concat(lpad(split_part(pg_last_xlog_replay_location()::text, '/', 1), 8, '0'), lpad(split_part(pg_last_xlog_replay_location()::text, '/', 2), 8, '0')) else pg_last_xlog_replay_location()::text end else 'FFFFFFFFFFFFFFFF' end")
+		rs, err := db.Query("select case when pg_is_in_recovery() then pg_last_xlog_replay_location()::text else 'FFFFFFFF/FFFFFFFF' end")
 		if err == nil {
 			defer rs.Close()
 			for rs.Next() {
