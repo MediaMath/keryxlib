@@ -17,7 +17,7 @@ import (
 type WalStream struct {
 	dataDir             string
 	publish             chan<- *wal.Entry
-	stop                chan interface{}
+	done                chan interface{}
 	cursor              *wal.Cursor
 	lastOffsetPublished uint64
 }
@@ -59,18 +59,8 @@ func (streamer *WalStream) Start() (<-chan *wal.Entry, error) {
 
 // Stop will end publishing to the channel returned by start.
 func (streamer *WalStream) Stop() {
-	streamer.stop <- true
-}
-
-func (streamer *WalStream) isStopped() (stopped bool) {
-	select {
-	case <-streamer.stop:
-		stopped = true
-	default:
-		stopped = false
-	}
-
-	return
+	defer func() { recover() }()
+	close(streamer.done)
 }
 
 func (streamer *WalStream) startAtCheckpoint() error {
@@ -92,29 +82,31 @@ func (streamer *WalStream) publishUntilErrorOrStopped() (stopped bool) {
 	currentCursor = *streamer.cursor
 	keepReading := true
 	for keepReading {
+		select {
+		case <-streamer.done:
+			keepReading = false
 
-		previousCursor = currentCursor
+		default:
+			previousCursor = currentCursor
 
-		ents, currentCursor, err = currentCursor.ReadEntries()
+			ents, currentCursor, err = currentCursor.ReadEntries()
 
-		if err == nil && len(ents) > 0 {
-			for _, ent := range ents {
-				if ent.ReadFrom.Offset() > streamer.lastOffsetPublished {
-					streamer.publish <- &ent
-					*streamer.cursor = currentCursor
+			if err == nil && len(ents) > 0 {
+				for _, ent := range ents {
+					if ent.ReadFrom.Offset() > streamer.lastOffsetPublished {
+						streamer.publish <- &ent
+						*streamer.cursor = currentCursor
 
-					streamer.lastOffsetPublished = ent.ReadFrom.Offset()
+						streamer.lastOffsetPublished = ent.ReadFrom.Offset()
+					}
 				}
+			} else {
+				keepReading = false
 			}
-		} else {
-			keepReading = false
-		}
 
-		stopped = streamer.isStopped()
-		keepReading = keepReading && !stopped
-
-		if previousCursor.String() == currentCursor.String() {
-			keepReading = false
+			if previousCursor.String() == currentCursor.String() {
+				keepReading = false
+			}
 		}
 	}
 

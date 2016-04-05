@@ -62,6 +62,7 @@ type TxnChannelStopper struct {
 
 //Stop will initiate a Transaction channel shutdown
 func (t *TxnChannelStopper) Stop() {
+	defer func() { recover() }()
 	close(t.done)
 }
 
