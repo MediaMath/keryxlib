@@ -50,7 +50,7 @@ func (r *RecordBody) IsComplete() bool {
 
 // HeapData interprets the body based on the type indicated in the record header
 func (r *RecordBody) HeapData() []HeapData {
-	return NewHeapData(r.typ, r.header.IsInit(), r.bs)
+	return NewHeapData(r.typ, r.header.IsInit(), r.bs, r.header.version)
 }
 
 func readBody(block []byte, location Location, length uint64) []byte {

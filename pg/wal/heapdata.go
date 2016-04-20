@@ -23,12 +23,12 @@ type HeapData interface {
 }
 
 // NewHeapData will interpret the heap data based on record type
-func NewHeapData(recordType RecordType, isInit bool, data []byte) []HeapData {
+func NewHeapData(recordType RecordType, isInit bool, data []byte, version uint16) []HeapData {
 	switch recordType {
 	case Insert:
 		return []HeapData{InsertData(data)}
 	case Update:
-		return []HeapData{UpdateData(data)}
+		return []HeapData{UpdateData{data, version}}
 	case Delete:
 		return []HeapData{DeleteData(data)}
 	case MultiInsert:
@@ -67,28 +67,49 @@ func (d InsertData) String() string {
 }
 
 // UpdateData reads heap data as an update
-type UpdateData []byte
+type UpdateData struct {
+	bs      []byte
+	version uint16
+}
 
 // TablespaceID is the id of the tablespace this tuple is found in
-func (d UpdateData) TablespaceID() uint32 { return uint32(pg.LUint(d[0:4])) }
+func (d UpdateData) TablespaceID() uint32 { return uint32(pg.LUint(d.bs[0:4])) }
 
 // DatabaseID is the id of the database this tuple is found in
-func (d UpdateData) DatabaseID() uint32 { return uint32(pg.LUint(d[4:8])) }
+func (d UpdateData) DatabaseID() uint32 { return uint32(pg.LUint(d.bs[4:8])) }
 
 // RelationID is the id of the relation this tuple is found in
-func (d UpdateData) RelationID() uint32 { return uint32(pg.LUint(d[8:12])) }
+func (d UpdateData) RelationID() uint32 { return uint32(pg.LUint(d.bs[8:12])) }
 
 // FromBlock is the page number of the old version of this tuple
-func (d UpdateData) FromBlock() uint32 { return readBlockID(d[12:16]) }
+func (d UpdateData) FromBlock() uint32 { return readBlockID(d.bs[12:16]) }
 
 // FromOffset is the item number of the old version of this tuple
-func (d UpdateData) FromOffset() uint16 { return uint16(pg.LUint(d[16:18])) }
+func (d UpdateData) FromOffset() uint16 { return uint16(pg.LUint(d.bs[16:18])) }
 
 // ToBlock is the page number of the new version of this tuple
-func (d UpdateData) ToBlock() uint32 { return readBlockID(d[20:24]) }
+func (d UpdateData) ToBlock() uint32 {
+	switch d.version {
+	case 0xD066:
+		return readBlockID(d.bs[20:24])
+	case 0xD07E:
+		return readBlockID(d.bs[28:32])
+	}
+
+	return 0
+}
 
 // ToOffset is item number of the new version of this tuple
-func (d UpdateData) ToOffset() uint16 { return uint16(pg.LUint(d[24:26])) }
+func (d UpdateData) ToOffset() uint16 {
+	switch d.version {
+	case 0xD066:
+		return uint16(pg.LUint(d.bs[24:26]))
+	case 0xD07E:
+		return uint16(pg.LUint(d.bs[32:34]))
+	}
+
+	return 0
+}
 
 func (d UpdateData) String() string {
 	return fmt.Sprintf("Update in %v/%v/%v from (%v,%v) to (%v,%v)", d.TablespaceID(), d.DatabaseID(), d.RelationID(), d.FromBlock(), d.FromOffset(), d.ToBlock(), d.ToOffset())
