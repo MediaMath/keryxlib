@@ -20,6 +20,37 @@ const (
 	relIDName   = "select coalesce(pg_relation_filenode(rel.oid), rel.relfilenode) relation_id, concat_ws('.', current_database(), ns.nspname, rel.relname) relation_name from pg_class rel join pg_namespace ns on ns.oid = rel.relnamespace"
 )
 
+//NewSchema will create a new schema by querying the database
+func NewSchema(database, ns, table string, db *sql.DB) (*Schema, error) {
+	schema := &Schema{database, ns, table, make([]*SchemaField, 0)}
+
+	rs, err := db.Query(fieldsQuery, schema.Namespace, schema.Table)
+	if err != nil {
+		return nil, fmt.Errorf("failed to lookup table fields: %v", err)
+	}
+	defer rs.Close()
+
+	count := 0
+	for rs.Next() {
+		field := new(SchemaField)
+		if err := rs.Scan(&field.Column, &field.DataType, &field.Size); err != nil {
+			return nil, fmt.Errorf("failed to read table fields row: %v", err)
+		}
+		count++
+		schema.Fields = append(schema.Fields, field)
+
+		if count < 1 {
+			return nil, fmt.Errorf("error while reading table fields rows: no results for %v %v", schema.Namespace, schema.Table)
+		}
+
+		if err := rs.Err(); err != nil {
+			return nil, fmt.Errorf("error while reading table fields rows: %v", err)
+		}
+	}
+
+	return schema, nil
+}
+
 //Schema is the full representation of a Table
 type Schema struct {
 	Database  string
@@ -38,6 +69,24 @@ func (s *Schema) String() string {
 	}
 
 	return fmt.Sprintf("Schema(%v.%v: [%v])", s.Namespace, s.Table, fieldStr)
+}
+
+//GetTextColumnQuery will create a list of column names casted to return text
+func (s *Schema) GetTextColumnQuery(sizeLimit int) (names []string, err error) {
+	if len(s.Fields) < 1 {
+		return nil, fmt.Errorf("no access to schema for %v, %v.%v", s.Database, s.Namespace, s.Table)
+	}
+
+	cast := fmt.Sprintf("::char varying(%v)", sizeLimit)
+	if sizeLimit < 1 {
+		cast = "::text"
+	}
+
+	for _, field := range s.Fields {
+		names = append(names, fmt.Sprintf("coalesce(%v%v, '')", field.Column, cast))
+	}
+
+	return names, nil
 }
 
 //SchemaField represents a Column
@@ -173,8 +222,6 @@ func (sr *SchemaReader) HaveConnectionToDb(databaseID uint32) bool {
 }
 
 func (sr *SchemaReader) getSchema(databaseID uint32, relationID uint32) (*Schema, error) {
-	var count = 0
-
 	key := fmt.Sprintf("%v:%v", databaseID, relationID)
 
 	schema, ok := sr.schemaCache[key]
@@ -182,64 +229,45 @@ func (sr *SchemaReader) getSchema(databaseID uint32, relationID uint32) (*Schema
 		return schema, nil
 	}
 
-	schema = &Schema{"", "", "", make([]*SchemaField, 0)}
-
 	dbDetails, ok := sr.conns[databaseID]
 	if !ok {
 		return nil, nil
 	}
 
 	db := dbDetails.Conn
-
-	rs, err := db.Query(nameQuery, relationID)
+	namespace, table, err := getNamespaceAndTable(dbDetails.Name, relationID, db)
 	if err != nil {
-		return nil, fmt.Errorf("failed to lookup table name: %v", err)
-	}
-	defer rs.Close()
-
-	for rs.Next() {
-		if err := rs.Scan(&schema.Namespace, &schema.Table); err != nil {
-			return nil, fmt.Errorf("failed to read table name row: %v", err)
-		}
-		count++
+		return nil, err
 	}
 
-	if count < 1 {
-		return nil, fmt.Errorf("error while reading table name rows: no results for %v:%v", databaseID, relationID)
-	}
-
-	count = 0
-
-	if err := rs.Err(); err != nil {
-		return nil, fmt.Errorf("error while reading table name rows: %v", err)
-	}
-
-	rs, err = db.Query(fieldsQuery, schema.Namespace, schema.Table)
-	if err != nil {
-		return nil, fmt.Errorf("failed to lookup table name: %v", err)
-	}
-	defer rs.Close()
-
-	for rs.Next() {
-		field := new(SchemaField)
-		if err := rs.Scan(&field.Column, &field.DataType, &field.Size); err != nil {
-			return nil, fmt.Errorf("failed to read table fields row: %v", err)
-		}
-		count++
-		schema.Fields = append(schema.Fields, field)
-
-		if count < 1 {
-			return nil, fmt.Errorf("error while reading table fields rows: no results for %v %v", schema.Namespace, schema.Table)
-		}
-
-		if err := rs.Err(); err != nil {
-			return nil, fmt.Errorf("error while reading table fields rows: %v", err)
-		}
-	}
+	schema, err = NewSchema(dbDetails.Name, namespace, table, db)
 
 	sr.schemaCache[key] = schema
 
 	return schema, nil
+}
+
+func getNamespaceAndTable(database string, relationID uint32, db *sql.DB) (namespace string, table string, err error) {
+	rs, err := db.Query(nameQuery, relationID)
+	if err != nil {
+		err = fmt.Errorf("failed to lookup table name: %v", err)
+		return
+	}
+	defer rs.Close()
+
+	for rs.Next() {
+		err = rs.Scan(&namespace, &table)
+		if err != nil {
+			err = fmt.Errorf("failed to read table name row: %v", err)
+			return
+		}
+	}
+
+	if namespace == "" || table == "" {
+		err = fmt.Errorf("error while reading table name rows: no results for %v:%v", database, relationID)
+	}
+
+	return
 }
 
 //GetDatabaseName takes a postgres database id and returns the name of it.
@@ -282,13 +310,14 @@ func (sr *SchemaReader) GetFieldValues(databaseID uint32, relationID uint32, blo
 		return nil, fmt.Errorf("no access to schema for %v, %v", databaseID, relationID)
 	}
 
-	cast := fmt.Sprintf("::char varying(%v)", sr.fieldSizeLimit)
+	names, err := schema.GetTextColumnQuery(int(sr.fieldSizeLimit))
+	if err != nil {
+		return nil, err
+	}
 
-	var names []string
 	var values []*string
 	var valuesI []interface{}
-	for _, field := range schema.Fields {
-		names = append(names, fmt.Sprintf("coalesce(%v%v, '')", field.Column, cast))
+	for range names {
 		s := new(string)
 		values = append(values, s)
 		valuesI = append(valuesI, interface{}(s))
