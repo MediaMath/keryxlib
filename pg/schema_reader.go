@@ -83,7 +83,7 @@ func (s *Schema) GetTextColumnQuery(sizeLimit int) (names []string, err error) {
 	}
 
 	for _, field := range s.Fields {
-		names = append(names, fmt.Sprintf("coalesce(%v%v, '')", field.Column, cast))
+		names = append(names, fmt.Sprintf("coalesce(%v%v, '') as \"%v\"", field.Column, cast, field.Column))
 	}
 
 	return names, nil
