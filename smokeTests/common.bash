@@ -3,6 +3,8 @@ setup () {
 	SCRIPT_PATH=`dirname $0`
 	DATABASE_NAME=smoke_test
 
+	export PATH="/usr/lib/postgresql/9.4/bin:$PATH"
+
 	prepare_temp_dir () {
 		TEMP_PATH="$SCRIPT_PATH/tmp"
 		cleanup_temp_dir
