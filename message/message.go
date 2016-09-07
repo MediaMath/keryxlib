@@ -124,6 +124,27 @@ type Table struct {
 	Relation     string `json:"rel"`
 }
 
+//TxnSummary is a summary of a transaction instead of the contents of it
+type TxnSummary struct {
+	TransactionID uint32            `json:"xid"`
+	FirstKey      Key               `json:"first"`
+	CommitKey     Key               `json:"commit"`
+	CommitTime    time.Time         `json:"commit_time"`
+	PublishTime   time.Time         `json:"publish_time"`
+	MessageCount  int               `json:"message_count,omitempty"`
+	TupleLen      int64             `json:"tuple_len,omitempty"`
+	TotalLen      int64             `json:"total_len,omitempty"`
+	ServerVersion string            `json:"server_version,omitempty"`
+	Tables        map[Table]Summary `json:"tables"`
+}
+
+//Summary is summary information about message types
+type Summary struct {
+	Inserts int `json:"inserts"`
+	Updates int `json:"updates"`
+	Deletes int `json:"deletes"`
+}
+
 //RelFullName is a full table address of the form db.ns.table
 func (msg Table) RelFullName() string {
 	return fmt.Sprintf("%s.%s.%s", msg.DatabaseName, msg.Namespace, msg.Relation)
