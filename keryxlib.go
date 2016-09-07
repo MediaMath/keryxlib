@@ -5,11 +5,55 @@ package keryxlib
 // license that can be found in the LICENSE file.
 
 import (
+	"context"
+
 	"github.com/MediaMath/keryxlib/filters"
 	"github.com/MediaMath/keryxlib/message"
 	"github.com/MediaMath/keryxlib/pg"
 	"github.com/MediaMath/keryxlib/streams"
 )
+
+//StartSummaryChannel sets up a keryx symmary stream and schema reader with the provided configuration and returns a channel
+func StartSummaryChannel(ctx context.Context, serverVersion string, kc *Config) (<-chan message.TxnSummary, error) {
+	schemaReader, err := pg.NewSchemaReader(kc.PGConnStrings, "postgres", 255)
+	if err != nil {
+		return nil, err
+	}
+
+	bufferWorkingDirectory, err := kc.GetBufferDirectoryOrTemp()
+	if err != nil {
+		return nil, err
+	}
+
+	walStream, err := streams.NewWalStream(kc.DataDir)
+	if err != nil {
+		return nil, err
+	}
+
+	wal, err := walStream.Start()
+	if err != nil {
+		return nil, err
+	}
+
+	go func() {
+		<-ctx.Done()
+		walStream.Stop()
+	}()
+
+	f := filters.Exclusive(schemaReader, kc.ExcludeRelations)
+	if len(kc.IncludeRelations) > 0 {
+		f = filters.Inclusive(schemaReader, kc.IncludeRelations)
+	}
+
+	txnBuffer := &streams.TxnBuffer{Filters: f, WorkingDirectory: bufferWorkingDirectory, SchemaReader: schemaReader}
+	buffered, err := txnBuffer.Start(wal)
+	if err != nil {
+		walStream.Stop()
+		return nil, err
+	}
+
+	return streams.SummaryStream{SchemaMetaInformation: schemaReader}.Start(serverVersion, buffered)
+}
 
 //TransactionChannel sets up a keryx stream and schema reader with the provided configuration and returns
 //it as a channel
