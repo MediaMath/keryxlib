@@ -102,7 +102,7 @@ func (c *Not) Check(txn *message.Transaction) bool {
 
 func (c *Not) validate() error {
 	if c.condition == nil {
-		return fmt.Errorf("No condition to invert.")
+		return fmt.Errorf("no condition to invert")
 	}
 
 	return nil
@@ -269,7 +269,7 @@ func (c *HasMessage) Check(txn *message.Transaction) bool {
 
 func (c *HasMessage) validate() error {
 	if c.Waits == nil && c.Type == nil && c.DatabaseName == nil && c.Namespace == nil && c.Relation == nil && c.TupleID == nil && c.PrevTupleID == nil && len(c.FieldsMatch) == 0 && c.MissingFields == nil {
-		return fmt.Errorf("No message conditions specified.")
+		return fmt.Errorf("no message conditions specified")
 	}
 
 	return nil

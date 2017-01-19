@@ -12,7 +12,7 @@ import (
 )
 
 //ErrIncorrectVersion is returned when a non supported postgres is found.
-var ErrIncorrectVersion = errors.New("Only postgres 9.1 is supported.")
+var ErrIncorrectVersion = errors.New("only postgres 9.1 is supported")
 
 //IsPgVersionSupported returns an error if the postgres version is not supported currently.
 func IsPgVersionSupported(versionFilePath string) error {

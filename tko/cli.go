@@ -22,13 +22,13 @@ func GetConditionFromArgsOrStdIn(ctx *cli.Context) (Condition, error) {
 	if doesFileHaveInput(os.Stdin) {
 		bytes, err := ioutil.ReadAll(os.Stdin)
 		if err != nil {
-			return nil, fmt.Errorf("Error reading stdin: %v", err)
+			return nil, fmt.Errorf("error reading stdin: %v", err)
 		}
 
 		return ReadConditionFromJSON(string(bytes))
 	}
 
-	return nil, fmt.Errorf("No query provided.")
+	return nil, fmt.Errorf("no query provided")
 }
 
 func doesFileHaveInput(file *os.File) bool {
