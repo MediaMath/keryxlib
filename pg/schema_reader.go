@@ -77,13 +77,14 @@ func (s *Schema) GetTextColumnQuery(sizeLimit int) (names []string, err error) {
 		return nil, fmt.Errorf("no access to schema for %v, %v.%v", s.Database, s.Namespace, s.Table)
 	}
 
-	cast := fmt.Sprintf("::char varying(%v)", sizeLimit)
-	if sizeLimit < 1 {
-		cast = "::text"
-	}
-
-	for _, field := range s.Fields {
-		names = append(names, fmt.Sprintf("coalesce(%v%v, '') as \"%v\"", field.Column, cast, field.Column))
+	if sizeLimit > 0 {
+		for _, field := range s.Fields {
+			names = append(names, fmt.Sprintf("format('%%s', %v)::char varying(%v) as \"%v\"", field.Column, sizeLimit, field.Column))
+		}
+	} else {
+		for _, field := range s.Fields {
+			names = append(names, fmt.Sprintf("format('%%s', %v) as \"%v\"", field.Column, field.Column))
+		}
 	}
 
 	return names, nil
