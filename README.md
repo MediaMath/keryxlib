@@ -1,5 +1,7 @@
 ## keryxlib - parse postgres WAL logs as json events
 
+**Deprecated** - this library is no longer actively maintained.  Move to logical decoding in postgres 9.4 or higher.
+
 Keryxlib is a system for parsing postgres WAL logs and turning them into json events.  The basic algorithm for this is:
 
 - Parse the WAL log and create a [wal.Entry](pg/wal/entry.go) record.  This is a basic record that contains basic WAL data.
